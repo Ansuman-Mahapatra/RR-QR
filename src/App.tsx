@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import QRCodeStyling from 'qr-code-styling';
-import { Download, Clock, Loader2, Sparkles, Globe, ShieldAlert } from 'lucide-react';
+import { Download, Clock, Loader2, Sparkles, Globe } from 'lucide-react';
 import './index.css';
 
 export default function App() {
