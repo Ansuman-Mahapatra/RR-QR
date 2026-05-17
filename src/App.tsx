@@ -1,15 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import QRCodeStyling from 'qr-code-styling';
-import { Download, Upload, Trash2, Clock, Loader2, Sparkles, Globe, ShieldAlert } from 'lucide-react';
+import { Download, Clock, Loader2, Sparkles, Globe, ShieldAlert } from 'lucide-react';
 import './index.css';
 
 export default function App() {
   const [url, setUrl] = useState("");
   const [dotColor, setDotColor] = useState("#6366f1");
   const [bgColor, setBgColor] = useState("#ffffff");
-  const [logo, setLogo] = useState<string | null>(null);
   
-  // Two modes: 'direct' (raw url, no expire) or 'expiring' (redirect app, 1 hr expire)
   const [mode, setMode] = useState<'direct' | 'expiring'>('expiring');
   
   const [encodedUrl, setEncodedUrl] = useState('');
@@ -20,8 +18,21 @@ export default function App() {
   const qrRef = useRef<HTMLDivElement>(null);
   const qrCode = useRef<QRCodeStyling | null>(null);
 
+  // Generate an SVG logo with the text "RR" dynamically matching the colors
+  const getRRLogo = () => {
+    const bg = bgColor.replace('#', '%23');
+    const fill = dotColor.replace('#', '%23');
+    return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="${bg}" rx="25"/><text x="50" y="55" font-family="sans-serif" font-weight="bold" font-size="50" fill="${fill}" text-anchor="middle" dominant-baseline="middle">RR</text></svg>`;
+  };
+
   const handleGenerate = () => {
     if (!url.trim()) return;
+    
+    // Ensure URL has http/https if it doesn't, so phones recognize it as a link
+    let finalUrl = url.trim();
+    if (!/^https?:\/\//i.test(finalUrl)) {
+      finalUrl = 'https://' + finalUrl;
+    }
     
     setIsGenerating(true);
     setIsGenerated(false);
@@ -30,69 +41,53 @@ export default function App() {
       if (mode === 'expiring') {
         const timeMs = Date.now() + 1 * 60 * 60 * 1000;
         setExpiryTime(timeMs);
-        
-        // Use the current domain (localhost for now, but will be a real domain when deployed)
         const currentDomain = window.location.origin;
-        const redirectUrl = `${currentDomain}/r?t=${encodeURIComponent(url)}&e=${timeMs}`;
+        const redirectUrl = `${currentDomain}/r?t=${encodeURIComponent(finalUrl)}&e=${timeMs}`;
         setEncodedUrl(redirectUrl);
       } else {
-        // Direct mode: just encode the raw URL (no expiration)
         setExpiryTime(null);
-        setEncodedUrl(url);
+        setEncodedUrl(finalUrl);
       }
       
       setIsGenerating(false);
       setIsGenerated(true);
-    }, 2000); 
+    }, 1500); 
   };
 
   useEffect(() => {
     if (!isGenerated || !encodedUrl) return;
 
+    const qrOptions: any = {
+      width: 300,
+      height: 300,
+      type: "svg",
+      data: encodedUrl,
+      image: getRRLogo(),
+      qrOptions: {
+        errorCorrectionLevel: 'H' // High error correction needed for center logos
+      },
+      dotsOptions: { color: dotColor, type: "rounded" },
+      backgroundOptions: { color: bgColor },
+      imageOptions: { crossOrigin: "anonymous", margin: 5, imageSize: 0.3 },
+      cornersSquareOptions: { type: "extra-rounded", color: dotColor },
+      cornersDotOptions: { type: "dot", color: dotColor }
+    };
+
     if (!qrCode.current) {
-      qrCode.current = new QRCodeStyling({
-        width: 300,
-        height: 300,
-        type: "svg",
-        data: encodedUrl,
-        image: logo || undefined,
-        dotsOptions: { color: dotColor, type: "rounded" },
-        backgroundOptions: { color: bgColor },
-        imageOptions: { crossOrigin: "anonymous", margin: 10, imageSize: 0.4 },
-        cornersSquareOptions: { type: "extra-rounded", color: dotColor },
-        cornersDotOptions: { type: "dot", color: dotColor }
-      });
+      qrCode.current = new QRCodeStyling(qrOptions);
     } else {
-      qrCode.current.update({
-        data: encodedUrl,
-        image: logo || undefined,
-        dotsOptions: { color: dotColor, type: "rounded" },
-        backgroundOptions: { color: bgColor },
-        cornersSquareOptions: { type: "extra-rounded", color: dotColor },
-        cornersDotOptions: { type: "dot", color: dotColor }
-      });
+      qrCode.current.update(qrOptions);
     }
 
     if (qrRef.current) {
       qrRef.current.innerHTML = '';
       qrCode.current.append(qrRef.current);
     }
-  }, [isGenerated, encodedUrl, dotColor, bgColor, logo]);
+  }, [isGenerated, encodedUrl, dotColor, bgColor]);
 
   const handleDownload = () => {
     if (qrCode.current) {
-      qrCode.current.download({ name: mode === 'expiring' ? "1hr-qr" : "permanent-qr", extension: "png" });
-    }
-  };
-
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setLogo(event.target?.result as string);
-      };
-      reader.readAsDataURL(file);
+      qrCode.current.download({ name: mode === 'expiring' ? "RR-1hr-qr" : "RR-permanent-qr", extension: "png" });
     }
   };
 
@@ -122,7 +117,7 @@ export default function App() {
                   fontWeight: 600, transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'
                 }}>
                 <Globe size={18} />
-                Permanent (Works Everywhere)
+                Permanent
               </button>
               <button 
                 onClick={() => { setMode('expiring'); setIsGenerated(false); }}
@@ -133,7 +128,7 @@ export default function App() {
                   fontWeight: 600, transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'
                 }}>
                 <Clock size={18} />
-                1-Hour Expiring (Requires Hosting)
+                1-Hour Expiring
               </button>
             </div>
           </div>
@@ -149,7 +144,7 @@ export default function App() {
                 setUrl(e.target.value);
                 setIsGenerated(false); 
               }}
-              placeholder="Paste your link here (e.g. https://google.com)"
+              placeholder="Paste your link here (e.g. google.com)"
             />
           </div>
           
@@ -182,22 +177,6 @@ export default function App() {
               <input type="color" className="color-input" value={bgColor} onChange={(e) => setBgColor(e.target.value)} />
               <span className="color-label">Background</span>
             </div>
-          </div>
-
-          <div className="form-group">
-            <label>Embed Logo (Optional)</label>
-            <div className="file-upload">
-              <div className="file-upload-btn">
-                <Upload size={20} />
-                <span>{logo ? 'Change Logo' : 'Upload Logo'}</span>
-              </div>
-              <input type="file" accept="image/*" onChange={handleLogoUpload} />
-            </div>
-            {logo && (
-              <button className="clear-logo-btn" onClick={() => setLogo(null)}>
-                <Trash2 size={16} style={{ verticalAlign: 'middle', marginRight: '4px' }}/> Remove Logo
-              </button>
-            )}
           </div>
         </div>
 
@@ -236,7 +215,7 @@ export default function App() {
                   background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '0.5rem 1rem', 
                   borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: 500
                 }}>
-                  <Globe size={16} /> Permanent Link (No Expiration)
+                  <Globe size={16} /> Permanent Link
                 </div>
               )}
 
