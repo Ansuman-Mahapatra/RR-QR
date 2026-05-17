@@ -6,6 +6,7 @@ import App from './App.tsx'
 import Redirect from './Redirect.tsx'
 import ViewImage from './ViewImage.tsx'
 import ViewFile from './ViewFile.tsx'
+import ViewGallery from './ViewGallery.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -15,6 +16,7 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/r" element={<Redirect />} />
         <Route path="/view" element={<ViewImage />} />
         <Route path="/viewfile" element={<ViewFile />} />
+        <Route path="/gallery" element={<ViewGallery />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,

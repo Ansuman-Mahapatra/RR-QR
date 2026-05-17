@@ -71,8 +71,8 @@ export default function ImageTab({ dotColor, bgColor }: ImageTabProps) {
 
       let finalQrUrl = '';
       if (mode === 'expiring') {
-        // 1-hour expiry, download allowed
-        const timeMs = Date.now() + 1 * 60 * 60 * 1000;
+        // 24-hour expiry, download allowed (shown as "Permanent" to user)
+        const timeMs = Date.now() + 24 * 60 * 60 * 1000;
         setExpiryTime(timeMs);
         finalQrUrl = `${currentDomain}/view?img=${encodeURIComponent(hostedUrl)}&e=${timeMs}&m=e`;
       } else {
@@ -155,7 +155,7 @@ export default function ImageTab({ dotColor, bgColor }: ImageTabProps) {
                 color: mode === 'expiring' ? 'white' : 'var(--text-main)',
                 fontWeight: 600, transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'
               }}>
-              <Clock size={18} /> 1-Hour Expiring
+              <Globe size={18} /> Permanent
             </button>
           </div>
         </div>

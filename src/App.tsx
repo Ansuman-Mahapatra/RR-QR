@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import QRCodeStyling from 'qr-code-styling';
-import { Download, Clock, Loader2, Sparkles, Globe, Link2, Image as ImageIcon, FileText } from 'lucide-react';
+import { Download, Clock, Loader2, Sparkles, Globe, Link2, Image as ImageIcon, FileText, Images } from 'lucide-react';
 import ImageTab from './ImageTab';
 import FileTab from './FileTab';
+import MultiImageTab from './MultiImageTab';
 import './index.css';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'url' | 'image' | 'file'>('url');
+  const [activeTab, setActiveTab] = useState<'url' | 'image' | 'file' | 'multi'>('url');
 
   // URL tab state
   const [url, setUrl] = useState("");
@@ -102,6 +103,13 @@ export default function App() {
           <FileText size={20} />
           Files / Docs
         </button>
+        <button
+          className={`main-tab-btn ${activeTab === 'multi' ? 'active' : ''}`}
+          onClick={() => setActiveTab('multi')}
+        >
+          <Images size={20} />
+          Multi Image
+        </button>
       </div>
 
       {/* URL Tab */}
@@ -195,6 +203,13 @@ export default function App() {
       {activeTab === 'file' && (
         <div className="glass-card">
           <FileTab dotColor={dotColor} bgColor={bgColor} />
+        </div>
+      )}
+
+      {/* Multi Image Tab */}
+      {activeTab === 'multi' && (
+        <div className="glass-card">
+          <MultiImageTab dotColor={dotColor} bgColor={bgColor} />
         </div>
       )}
     </div>
