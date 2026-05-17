@@ -36,12 +36,15 @@ export default function App() {
 
     setTimeout(() => {
       if (mode === 'expiring') {
+        // 1-hour expiry
         const timeMs = Date.now() + 1 * 60 * 60 * 1000;
         setExpiryTime(timeMs);
         setEncodedUrl(`${window.location.origin}/r?t=${encodeURIComponent(finalUrl)}&e=${timeMs}`);
       } else {
-        setExpiryTime(null);
-        setEncodedUrl(finalUrl);
+        // 24-hour expiry for "permanent" links
+        const timeMs = Date.now() + 24 * 60 * 60 * 1000;
+        setExpiryTime(timeMs);
+        setEncodedUrl(`${window.location.origin}/r?t=${encodeURIComponent(finalUrl)}&e=${timeMs}`);
       }
       setIsGenerating(false);
       setIsGenerated(true);
@@ -103,7 +106,7 @@ export default function App() {
               <div style={{ display: 'flex', gap: '1rem', background: 'var(--input-bg)', padding: '0.5rem', borderRadius: '12px', border: '1px solid var(--input-border)' }}>
                 <button onClick={() => { setMode('direct'); setIsGenerated(false); }}
                   style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: 'none', cursor: 'pointer', background: mode === 'direct' ? 'var(--primary)' : 'transparent', color: mode === 'direct' ? 'white' : 'var(--text-main)', fontWeight: 600, transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                  <Globe size={18} /> Permanent
+                  <Globe size={18} /> 24-Hour Link
                 </button>
                 <button onClick={() => { setMode('expiring'); setIsGenerated(false); }}
                   style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: 'none', cursor: 'pointer', background: mode === 'expiring' ? 'var(--primary)' : 'transparent', color: mode === 'expiring' ? 'white' : 'var(--text-main)', fontWeight: 600, transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
@@ -160,9 +163,9 @@ export default function App() {
                     <Clock size={16} /> Valid until {formattedTime}
                   </div>
                 )}
-                {mode === 'direct' && (
+                {mode === 'direct' && expiryTime && (
                   <div style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', padding: '0.5rem 1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>
-                    <Globe size={16} /> Permanent Link
+                    <Globe size={16} /> Valid for 24 hours
                   </div>
                 )}
                 <button className="btn-primary" onClick={handleDownload} style={{ background: '#10b981' }}>

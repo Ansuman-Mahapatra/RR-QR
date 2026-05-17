@@ -20,53 +20,48 @@ export default function ViewImage() {
   useEffect(() => {
     const img = searchParams.get('img');
     const expiry = searchParams.get('e');
+    const modeParam = searchParams.get('m'); // 'v' = view-only, 'e' = 1hr expiring
 
     if (!img) { setStatus('invalid'); return; }
 
     const decoded = decodeURIComponent(img);
     setImageUrl(decoded);
 
-    // Check expiry first (for expiring links using this page)
-    if (expiry) {
-      if (Date.now() > parseInt(expiry, 10)) { setStatus('expired'); return; }
+    // Check expiry for all modes
+    if (expiry && Date.now() > parseInt(expiry, 10)) {
+      setStatus('expired');
+      return;
+    }
+
+    if (modeParam === 'v') {
+      // View-only: check once-per-device lock
+      const storageKey = STORAGE_PREFIX + btoa(decoded).slice(0, 32);
+      const existing = localStorage.getItem(storageKey);
+      if (existing) { setStatus('already_viewed'); return; }
+
+      // Get IP and mark as viewed
+      fetch('https://api.ipify.org?format=json')
+        .then(r => r.json())
+        .then(data => setUserIp(data.ip || 'unknown'))
+        .catch(() => setUserIp('unknown'))
+        .finally(() => {
+          localStorage.setItem(storageKey, JSON.stringify({
+            ip: userIp,
+            viewedAt: new Date().toISOString()
+          }));
+          setStatus('viewing');
+        });
+    } else {
+      // 1-hr expiring or URL redirect mode — just show
       setStatus('viewing');
-      return;
     }
 
-    // View-only mode: get IP, check if already viewed
-    const storageKey = STORAGE_PREFIX + btoa(decoded).slice(0, 32);
-
-    const existing = localStorage.getItem(storageKey);
-    if (existing) {
-      // Already viewed from this browser
-      setStatus('already_viewed');
-      return;
-    }
-
-    // Get IP using public API
-    fetch('https://api.ipify.org?format=json')
-      .then(r => r.json())
-      .then(data => {
-        setUserIp(data.ip || 'unknown');
-      })
-      .catch(() => setUserIp('unknown'))
-      .finally(() => {
-        // Mark as viewed in localStorage IMMEDIATELY when they land
-        localStorage.setItem(storageKey, JSON.stringify({
-          ip: userIp,
-          viewedAt: new Date().toISOString()
-        }));
-        setStatus('viewing');
-      });
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [searchParams]);
 
   // Start countdown only AFTER image has fully loaded (view-only mode only)
   useEffect(() => {
-    const isViewOnly = !searchParams.get('e');
+    const isViewOnly = searchParams.get('m') === 'v';
     if (!imageLoaded || status !== 'viewing' || !isViewOnly) return;
 
     setCountdown(VIEW_DURATION_SEC);
@@ -86,7 +81,7 @@ export default function ViewImage() {
 
   // Disable right-click on entire page for view-only mode
   useEffect(() => {
-    const isViewOnly = !searchParams.get('e');
+    const isViewOnly = searchParams.get('m') === 'v';
     if (!isViewOnly) return;
 
     const block = (e: MouseEvent) => e.preventDefault();
@@ -167,7 +162,7 @@ export default function ViewImage() {
   }
 
   // --- Viewing state ---
-  const isViewOnly = !searchParams.get('e');
+  const isViewOnly = searchParams.get('m') === 'v';
 
   const handleDownload = async () => {
     try {

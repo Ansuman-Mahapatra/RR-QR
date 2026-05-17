@@ -71,12 +71,15 @@ export default function ImageTab({ dotColor, bgColor }: ImageTabProps) {
 
       let finalQrUrl = '';
       if (mode === 'expiring') {
+        // 1-hour expiry, download allowed
         const timeMs = Date.now() + 1 * 60 * 60 * 1000;
         setExpiryTime(timeMs);
-        finalQrUrl = `${currentDomain}/view?img=${encodeURIComponent(hostedUrl)}&e=${timeMs}`;
+        finalQrUrl = `${currentDomain}/view?img=${encodeURIComponent(hostedUrl)}&e=${timeMs}&m=e`;
       } else {
-        setExpiryTime(null);
-        finalQrUrl = `${currentDomain}/view?img=${encodeURIComponent(hostedUrl)}`;
+        // 24-hour expiry, view-only (no download, once per device, 10s window)
+        const timeMs = Date.now() + 24 * 60 * 60 * 1000;
+        setExpiryTime(timeMs);
+        finalQrUrl = `${currentDomain}/view?img=${encodeURIComponent(hostedUrl)}&e=${timeMs}&m=v`;
       }
 
       setEncodedUrl(finalQrUrl);
