@@ -197,7 +197,6 @@ export default function FileTab({ dotColor, bgColor }: FileTabProps) {
             </button>
           </>
         )}
-        )}
       </div>
     </div>}
     </div>
