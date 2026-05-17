@@ -82,7 +82,7 @@ export default function ViewImage() {
     }, 1000);
 
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [status]);
+  }, [status, imageLoaded]);
 
   // --- UI states ---
 
