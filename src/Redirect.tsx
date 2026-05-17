@@ -5,7 +5,7 @@ import './index.css';
 
 export default function Redirect() {
   const [searchParams] = useSearchParams();
-  const [status, setStatus] = useState<'checking' | 'expired' | 'invalid'>('checking');
+  const [status, setStatus] = useState<'checking' | 'expired' | 'invalid' | 'validating'>('checking');
   
   useEffect(() => {
     const targetUrl = searchParams.get('t');
@@ -22,15 +22,25 @@ export default function Redirect() {
     if (now > expiryTime) {
       setStatus('expired');
     } else {
-      // Still valid, redirect!
-      window.location.href = decodeURIComponent(targetUrl);
+      setStatus('validating');
+      setTimeout(() => {
+        window.location.href = decodeURIComponent(targetUrl);
+      }, 1500);
     }
   }, [searchParams]);
 
-  if (status === 'checking') {
+  if (status === 'checking' || status === 'validating') {
     return (
       <div className="app-container" style={{ textAlign: 'center', marginTop: '15vh' }}>
-        <h2>Checking Link...</h2>
+        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4rem 2rem', gridTemplateColumns: '1fr' }}>
+          <Clock size={64} style={{ color: '#10b981', marginBottom: '1.5rem' }} className={status === 'checking' ? 'spin' : ''} />
+          <h2 style={{ fontSize: '2.5rem', marginBottom: '1rem', background: 'linear-gradient(to right, #10b981, #3b82f6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            {status === 'checking' ? 'Verifying Link...' : 'Link is Valid!'}
+          </h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>
+            {status === 'checking' ? 'Please wait a moment.' : 'This 1-Hour Expiring QR code is still valid. Redirecting you safely...'}
+          </p>
+        </div>
       </div>
     );
   }
