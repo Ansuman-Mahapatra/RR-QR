@@ -5,6 +5,7 @@ import './index.css'
 import App from './App.tsx'
 import Redirect from './Redirect.tsx'
 import ViewImage from './ViewImage.tsx'
+import ViewFile from './ViewFile.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -13,6 +14,7 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/" element={<App />} />
         <Route path="/r" element={<Redirect />} />
         <Route path="/view" element={<ViewImage />} />
+        <Route path="/viewfile" element={<ViewFile />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,
