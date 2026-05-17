@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import QRCodeStyling from 'qr-code-styling';
-import { Download, Clock, Loader2, Sparkles, Upload, FileText, X, Eye } from 'lucide-react';
+import { Download, Loader2, Sparkles, Upload, FileText, X } from 'lucide-react';
 import './index.css';
 
 interface FileTabProps {
@@ -10,12 +10,9 @@ interface FileTabProps {
 
 export default function FileTab({ dotColor, bgColor }: FileTabProps) {
   const [file, setFile] = useState<File | null>(null);
-  const [mode, setMode] = useState<'share' | 'expiring'>('share');
-
   const [isUploading, setIsUploading] = useState(false);
   const [isGenerated, setIsGenerated] = useState(false);
   const [encodedUrl, setEncodedUrl] = useState('');
-  const [expiryTime, setExpiryTime] = useState<number | null>(null);
   const [error, setError] = useState('');
 
   const qrRef = useRef<HTMLDivElement>(null);
@@ -61,18 +58,7 @@ export default function FileTab({ dotColor, bgColor }: FileTabProps) {
 
       const filePageUrl = uploadData.data.downloadPage || `https://gofile.io/d/${uploadData.data.code}`;
       const currentDomain = window.location.origin;
-
-      let finalQrUrl = '';
-      if (mode === 'expiring') {
-        const timeMs = Date.now() + 1 * 60 * 60 * 1000;
-        setExpiryTime(timeMs);
-        finalQrUrl = `${currentDomain}/viewfile?f=${encodeURIComponent(filePageUrl)}&e=${timeMs}&m=e&name=${encodeURIComponent(file.name)}`;
-      } else {
-        // 24hr share mode
-        const timeMs = Date.now() + 24 * 60 * 60 * 1000;
-        setExpiryTime(timeMs);
-        finalQrUrl = `${currentDomain}/viewfile?f=${encodeURIComponent(filePageUrl)}&e=${timeMs}&m=s&name=${encodeURIComponent(file.name)}`;
-      }
+      const finalQrUrl = `${currentDomain}/viewfile?f=${encodeURIComponent(filePageUrl)}&name=${encodeURIComponent(file.name)}`;
 
       setEncodedUrl(finalQrUrl);
       setIsGenerated(true);
@@ -100,11 +86,7 @@ export default function FileTab({ dotColor, bgColor }: FileTabProps) {
     if (qrRef.current) { qrRef.current.innerHTML = ''; qrCode.current.append(qrRef.current); }
   }, [isGenerated, encodedUrl, dotColor, bgColor]);
 
-  const handleDownload = () => qrCode.current?.download({ name: 'RR-file-qr', extension: 'png' });
-
-  const formattedTime = expiryTime
-    ? new Date(expiryTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : '';
+  const handleDownloadQR = () => qrCode.current?.download({ name: 'RR-file-qr', extension: 'png' });
 
   const formatSize = (bytes: number) => {
     if (bytes < 1024) return bytes + ' B';
@@ -116,26 +98,6 @@ export default function FileTab({ dotColor, bgColor }: FileTabProps) {
     <div className="image-tab-layout">
       <div className="controls-section">
 
-        {/* Mode toggle */}
-        <div className="form-group">
-          <label>QR Code Type</label>
-          <div style={{ display: 'flex', gap: '1rem', background: 'var(--input-bg)', padding: '0.5rem', borderRadius: '12px', border: '1px solid var(--input-border)' }}>
-            <button onClick={() => { setMode('share'); setIsGenerated(false); }}
-              style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: 'none', cursor: 'pointer', background: mode === 'share' ? 'var(--primary)' : 'transparent', color: mode === 'share' ? 'white' : 'var(--text-main)', fontWeight: 600, transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-              <Eye size={18} /> 24-Hour Share
-            </button>
-            <button onClick={() => { setMode('expiring'); setIsGenerated(false); }}
-              style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: 'none', cursor: 'pointer', background: mode === 'expiring' ? 'var(--primary)' : 'transparent', color: mode === 'expiring' ? 'white' : 'var(--text-main)', fontWeight: 600, transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-              <Clock size={18} /> 1-Hour Expiring
-            </button>
-          </div>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>
-            {mode === 'share'
-              ? 'Anyone who scans can download. Link auto-destroys after 24 hours.'
-              : 'Link works for 1 hour only, then becomes inaccessible.'}
-          </span>
-        </div>
-
         {/* File upload */}
         <div className="form-group">
           <label>Upload File / Document</label>
@@ -144,8 +106,13 @@ export default function FileTab({ dotColor, bgColor }: FileTabProps) {
               <Upload size={20} />
               <span>{file ? file.name : 'Choose a file (PDF, DOC, ZIP, etc.)'}</span>
             </div>
-            <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.csv,.json" onChange={handleFileSelect} />
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.csv,.json"
+              onChange={handleFileSelect}
+            />
           </div>
+
           {file && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.5rem', background: 'rgba(99,102,241,0.08)', padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid rgba(99,102,241,0.2)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -162,6 +129,10 @@ export default function FileTab({ dotColor, bgColor }: FileTabProps) {
             </div>
           )}
         </div>
+
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.6, padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid var(--input-border)' }}>
+          📎 Whoever scans this QR will see a <strong style={{ color: 'var(--text-main)' }}>secure download page</strong> with a button to get your file.
+        </p>
 
         {error && (
           <div style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '0.75rem 1rem', borderRadius: '10px', fontSize: '0.9rem' }}>
@@ -189,7 +160,7 @@ export default function FileTab({ dotColor, bgColor }: FileTabProps) {
         {isUploading && (
           <div style={{ textAlign: 'center', color: 'var(--primary)', padding: '2rem' }}>
             <Loader2 size={64} className="spin" style={{ marginBottom: '1rem' }} />
-            <p>Uploading file & generating QR...</p>
+            <p>Uploading & generating QR...</p>
           </div>
         )}
         {isGenerated && (
@@ -197,15 +168,10 @@ export default function FileTab({ dotColor, bgColor }: FileTabProps) {
             <div className="qr-container" style={{ backgroundColor: bgColor, borderRadius: '24px', padding: '10px' }}>
               <div ref={qrRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }} />
             </div>
-            <div style={{
-              background: mode === 'expiring' ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)',
-              color: mode === 'expiring' ? '#ef4444' : '#10b981',
-              padding: '0.5rem 1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: 500
-            }}>
-              <Clock size={16} />
-              {mode === 'expiring' ? `Valid until ${formattedTime}` : 'Accessible for 24 hours'}
+            <div style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', padding: '0.5rem 1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>
+              📎 Scan to open download page
             </div>
-            <button className="btn-primary" onClick={handleDownload} style={{ background: '#10b981' }}>
+            <button className="btn-primary" onClick={handleDownloadQR} style={{ background: '#10b981' }}>
               <Download size={20} /> Download QR PNG
             </button>
           </>

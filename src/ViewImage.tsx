@@ -177,42 +177,69 @@ export default function ViewImage() {
     } catch { /* silent */ }
   };
 
+  // 1-hr expiring mode → show a clean download page (don't display the image)
+  if (!isViewOnly) {
+    return (
+      <div className="app-container" style={{ marginTop: '10vh', paddingBottom: '3rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <h1 style={{ background: 'linear-gradient(to right, #818cf8, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: '2.5rem' }}>
+            Image Download
+          </h1>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', padding: '0.4rem 1rem', borderRadius: '12px', marginTop: '0.5rem', background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+            <Clock size={14} /> 1-Hour Expiring Link
+          </div>
+        </div>
+
+        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '3rem 2rem', gridTemplateColumns: '1fr', maxWidth: '480px', margin: '0 auto' }}>
+          <div style={{ width: '90px', height: '90px', borderRadius: '20px', background: 'rgba(99,102,241,0.1)', border: '2px solid rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem' }}>
+            <Eye size={44} style={{ color: 'var(--primary)' }} />
+          </div>
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '0.4rem', textAlign: 'center' }}>
+            Shared Image
+          </h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2rem', textAlign: 'center' }}>
+            An image has been shared with you via a secure 1-hour QR link.
+          </p>
+          <button onClick={handleDownload} style={{
+            background: 'var(--primary)', color: 'white',
+            padding: '1rem 2.5rem', borderRadius: '14px', border: 'none',
+            fontFamily: 'inherit', fontWeight: 700, cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', gap: '0.75rem',
+            fontSize: '1.1rem', boxShadow: '0 8px 20px rgba(99,102,241,0.35)'
+          }}>
+            <Download size={22} /> Download Image
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // View-only mode → show image with countdown
   return (
     <div className="app-container" style={{ marginTop: '5vh', paddingBottom: '3rem' }}>
       <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
         <h1 style={{ background: 'linear-gradient(to right, #818cf8, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: '2.5rem' }}>
           Image Viewer
         </h1>
-
-        {isViewOnly && (
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
-            fontSize: '0.95rem', padding: '0.4rem 1.2rem', borderRadius: '12px', marginTop: '0.5rem',
-            background: !imageLoaded ? 'rgba(99,102,241,0.08)' : countdown <= 3 ? 'rgba(239,68,68,0.15)' : 'rgba(99,102,241,0.1)',
-            color: !imageLoaded ? 'var(--text-muted)' : countdown <= 3 ? '#ef4444' : '#818cf8',
-            fontWeight: 600, transition: 'all 0.5s'
-          }}>
-            <Clock size={16} />
-            {!imageLoaded ? 'Loading image...' : `Closes in ${countdown}s`}
-          </div>
-        )}
-
-        {!isViewOnly && (
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', padding: '0.4rem 1rem', borderRadius: '12px', marginTop: '0.5rem', background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
-            <Clock size={14} /> 1-Hour Expiring Link
-          </div>
-        )}
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+          fontSize: '0.95rem', padding: '0.4rem 1.2rem', borderRadius: '12px', marginTop: '0.5rem',
+          background: !imageLoaded ? 'rgba(99,102,241,0.08)' : countdown <= 3 ? 'rgba(239,68,68,0.15)' : 'rgba(99,102,241,0.1)',
+          color: !imageLoaded ? 'var(--text-muted)' : countdown <= 3 ? '#ef4444' : '#818cf8',
+          fontWeight: 600, transition: 'all 0.5s'
+        }}>
+          <Clock size={16} />
+          {!imageLoaded ? 'Loading image...' : `Closes in ${countdown}s`}
+        </div>
       </div>
 
       <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem', gridTemplateColumns: '1fr' }}>
-        {/* Loading spinner before image is ready */}
         {!imageLoaded && (
           <div style={{ textAlign: 'center', color: 'var(--primary)', padding: '3rem' }}>
             <div className="spin" style={{ width: '48px', height: '48px', border: '4px solid rgba(99,102,241,0.2)', borderTopColor: 'var(--primary)', borderRadius: '50%', margin: '0 auto 1rem' }} />
             <p style={{ color: 'var(--text-muted)' }}>Loading image...</p>
           </div>
         )}
-
         <img
           src={imageUrl}
           alt="Shared content"
@@ -221,41 +248,22 @@ export default function ViewImage() {
           onLoad={() => setImageLoaded(true)}
           style={{
             display: imageLoaded ? 'block' : 'none',
-            maxWidth: '100%',
-            maxHeight: '65vh',
-            objectFit: 'contain',
-            borderRadius: '16px',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
-            userSelect: 'none',
-            pointerEvents: 'none',
+            maxWidth: '100%', maxHeight: '65vh', objectFit: 'contain',
+            borderRadius: '16px', boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+            userSelect: 'none', pointerEvents: 'none',
           }}
         />
-
-        {/* Countdown progress bar for view-only */}
-        {isViewOnly && (
-          <div style={{ width: '100%', marginTop: '1.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', overflow: 'hidden', height: '6px' }}>
-            <div style={{
-              height: '100%',
-              width: `${(countdown / VIEW_DURATION_SEC) * 100}%`,
-              background: countdown <= 3 ? '#ef4444' : 'var(--primary)',
-              transition: 'width 1s linear, background 0.3s',
-              borderRadius: '8px'
-            }} />
-          </div>
-        )}
-
-        {/* Download only for 1-hr expiring */}
-        {!isViewOnly && (
-          <button onClick={handleDownload} style={{
-            marginTop: '1.5rem', background: 'var(--primary)', color: 'white',
-            padding: '0.75rem 2rem', borderRadius: '12px', border: 'none',
-            fontFamily: 'inherit', fontWeight: 600, cursor: 'pointer',
-            display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem'
-          }}>
-            ⬇ Download Image
-          </button>
-        )}
+        <div style={{ width: '100%', marginTop: '1.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', overflow: 'hidden', height: '6px' }}>
+          <div style={{
+            height: '100%',
+            width: `${(countdown / VIEW_DURATION_SEC) * 100}%`,
+            background: countdown <= 3 ? '#ef4444' : 'var(--primary)',
+            transition: 'width 1s linear, background 0.3s',
+            borderRadius: '8px'
+          }} />
+        </div>
       </div>
     </div>
   );
 }
+
