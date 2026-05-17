@@ -131,7 +131,7 @@ export default function ImageTab({ dotColor, bgColor }: ImageTabProps) {
     : '';
 
   return (
-    <div>
+    <div style={{ gridColumn: '1 / -1', width: '100%' }}>
       {/* Sub-tab toggle: Single / Multi */}
       <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', background: 'rgba(15,23,42,0.4)', padding: '0.4rem', borderRadius: '12px', border: '1px solid var(--card-border)' }}>
         <button
