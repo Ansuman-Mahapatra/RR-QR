@@ -136,12 +136,6 @@ export default function App() {
                 1-Hour Expiring (Requires Hosting)
               </button>
             </div>
-            {mode === 'expiring' && (
-              <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.85rem', color: '#fbbf24', marginTop: '0.5rem', alignItems: 'flex-start' }}>
-                <ShieldAlert size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
-                <span>Because this app runs on your PC (localhost), expiring links will only work on your PC right now. To make expiring links work on any phone, you must host this app online (like Vercel).</span>
-              </div>
-            )}
           </div>
 
           <div className="form-group">
