@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Clock, AlertTriangle, Eye, ShieldOff } from 'lucide-react';
+import { Clock, AlertTriangle, Eye, ShieldOff, Download } from 'lucide-react';
 import './index.css';
 
 const STORAGE_PREFIX = 'rr_viewed_';
