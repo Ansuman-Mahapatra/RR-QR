@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import QRCodeStyling from 'qr-code-styling';
-import { Download, Loader2, Sparkles, Upload, FileText, X } from 'lucide-react';
+import { Download, Loader2, Sparkles, Upload, FileText, X, Files } from 'lucide-react';
+import MultiFileTab from './MultiFileTab';
 import './index.css';
 
 interface FileTabProps {
@@ -9,6 +10,7 @@ interface FileTabProps {
 }
 
 export default function FileTab({ dotColor, bgColor }: FileTabProps) {
+  const [fileSubTab, setFileSubTab] = useState<'single' | 'multi'>('single');
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isGenerated, setIsGenerated] = useState(false);
@@ -95,8 +97,27 @@ export default function FileTab({ dotColor, bgColor }: FileTabProps) {
   };
 
   return (
-    <div className="image-tab-layout">
-      <div className="controls-section">
+    <div style={{ gridColumn: '1 / -1', width: '100%' }}>
+      {/* Sub-tab toggle: Single / Multi */}
+      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', background: 'rgba(15,23,42,0.4)', padding: '0.4rem', borderRadius: '12px', border: '1px solid var(--card-border)' }}>
+        <button
+          onClick={() => setFileSubTab('single')}
+          style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.95rem', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: fileSubTab === 'single' ? 'var(--primary)' : 'transparent', color: fileSubTab === 'single' ? 'white' : 'var(--text-muted)' }}>
+          <FileText size={16} /> Single File
+        </button>
+        <button
+          onClick={() => setFileSubTab('multi')}
+          style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.95rem', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: fileSubTab === 'multi' ? 'var(--primary)' : 'transparent', color: fileSubTab === 'multi' ? 'white' : 'var(--text-muted)' }}>
+          <Files size={16} /> Multi File
+        </button>
+      </div>
+
+      {/* Multi File Section */}
+      {fileSubTab === 'multi' && <MultiFileTab dotColor={dotColor} bgColor={bgColor} />}
+
+      {/* Single File Section */}
+      {fileSubTab === 'single' && <div className="image-tab-layout">
+        <div className="controls-section">
 
         {/* File upload */}
         <div className="form-group">
@@ -176,7 +197,9 @@ export default function FileTab({ dotColor, bgColor }: FileTabProps) {
             </button>
           </>
         )}
+        )}
       </div>
+    </div>}
     </div>
   );
 }
