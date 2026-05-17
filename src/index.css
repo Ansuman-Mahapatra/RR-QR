@@ -320,12 +320,13 @@ body {
   box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
 }
 
-/* Image tab layout */
+/* Image/File tab layout */
 .image-tab-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 3rem;
   width: 100%;
+  grid-column: 1 / -1; /* Span both columns of the parent glass-card grid */
 }
 
 @media (max-width: 768px) {
