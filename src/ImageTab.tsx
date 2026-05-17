@@ -12,7 +12,7 @@ export default function ImageTab({ dotColor, bgColor }: ImageTabProps) {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [mode, setMode] = useState<'expiring' | 'viewonly'>('viewonly');
-  const [apiKey, setApiKey] = useState('');
+  const IMGBB_KEY = '1ee54d2dcc1b17afca1931ceed340d2f';
 
   const [isUploading, setIsUploading] = useState(false);
   const [isGenerated, setIsGenerated] = useState(false);
@@ -42,10 +42,6 @@ export default function ImageTab({ dotColor, bgColor }: ImageTabProps) {
 
   const handleGenerate = async () => {
     if (!imageFile) return;
-    if (!apiKey.trim()) {
-      setError('Please enter your free ImgBB API key to upload images.');
-      return;
-    }
 
     setIsUploading(true);
     setIsGenerated(false);
@@ -59,7 +55,7 @@ export default function ImageTab({ dotColor, bgColor }: ImageTabProps) {
         formData.append('expiration', '3600'); // 1 hour in seconds
       }
 
-      const res = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+      const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, {
         method: 'POST',
         body: formData,
       });
@@ -187,23 +183,7 @@ export default function ImageTab({ dotColor, bgColor }: ImageTabProps) {
           )}
         </div>
 
-        {/* ImgBB API Key */}
-        <div className="form-group">
-          <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            ImgBB API Key
-            <a href="https://api.imgbb.com/" target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--primary)' }}>Get Free Key ↗</a>
-          </label>
-          <input
-            type="password"
-            className="input-field"
-            value={apiKey}
-            onChange={(e) => { setApiKey(e.target.value); setError(''); }}
-            placeholder="Paste your free ImgBB API key"
-          />
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-            Free at imgbb.com — needed to host your image publicly.
-          </span>
-        </div>
+
 
         {error && (
           <div style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '0.75rem 1rem', borderRadius: '10px', fontSize: '0.9rem' }}>

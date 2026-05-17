@@ -71,6 +71,22 @@ export default function ViewImage() {
 
   // Valid — show image
   const isExpiring = !!searchParams.get('e');
+
+  const handleDownload = async () => {
+    try {
+      const res = await fetch(imageUrl);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = 'image';
+      a.click();
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      // silently fail
+    }
+  };
+
   return (
     <div className="app-container" style={{ marginTop: '5vh', paddingBottom: '3rem' }}>
       <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
@@ -82,7 +98,7 @@ export default function ViewImage() {
           color: isExpiring ? '#ef4444' : '#10b981'
         }}>
           {isExpiring ? <Clock size={14} /> : <Eye size={14} />}
-          {isExpiring ? '1-Hour Expiring Link' : 'Permanent View Link'}
+          {isExpiring ? '1-Hour Expiring Link' : 'View Only'}
         </div>
       </div>
 
@@ -90,33 +106,40 @@ export default function ViewImage() {
         <img
           src={imageUrl}
           alt="Shared content"
+          onContextMenu={(e) => e.preventDefault()}
           style={{
             maxWidth: '100%',
             maxHeight: '70vh',
             objectFit: 'contain',
             borderRadius: '16px',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
+            boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+            userSelect: 'none',
+            pointerEvents: isExpiring ? 'auto' : 'none',
           }}
         />
-        <a
-          href={imageUrl}
-          download
-          target="_blank"
-          rel="noreferrer"
-          style={{
-            marginTop: '1.5rem',
-            background: 'var(--primary)',
-            color: 'white',
-            padding: '0.75rem 2rem',
-            borderRadius: '12px',
-            textDecoration: 'none',
-            fontWeight: 600,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.5rem'
-          }}>
-          Open Full Image ↗
-        </a>
+
+        {/* Download only for 1-hr expiring — not for view-only */}
+        {isExpiring && (
+          <button
+            onClick={handleDownload}
+            style={{
+              marginTop: '1.5rem',
+              background: 'var(--primary)',
+              color: 'white',
+              padding: '0.75rem 2rem',
+              borderRadius: '12px',
+              border: 'none',
+              fontFamily: 'inherit',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              fontSize: '1rem'
+            }}>
+            ⬇ Download Image
+          </button>
+        )}
       </div>
     </div>
   );
