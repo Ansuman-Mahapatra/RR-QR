@@ -14,6 +14,7 @@ export default function ViewImage() {
   const [imageUrl, setImageUrl] = useState('');
   const [countdown, setCountdown] = useState(VIEW_DURATION_SEC);
   const [userIp, setUserIp] = useState('');
+  const [imageLoaded, setImageLoaded] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -63,10 +64,10 @@ export default function ViewImage() {
     };
   }, [searchParams]);
 
-  // Start countdown once viewing starts (view-only mode only)
+  // Start countdown only AFTER image has fully loaded (view-only mode only)
   useEffect(() => {
     const isViewOnly = !searchParams.get('e');
-    if (status !== 'viewing' || !isViewOnly) return;
+    if (!imageLoaded || status !== 'viewing' || !isViewOnly) return;
 
     setCountdown(VIEW_DURATION_SEC);
     timerRef.current = setInterval(() => {
@@ -182,12 +183,12 @@ export default function ViewImage() {
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
             fontSize: '0.95rem', padding: '0.4rem 1.2rem', borderRadius: '12px', marginTop: '0.5rem',
-            background: countdown <= 3 ? 'rgba(239,68,68,0.15)' : 'rgba(99,102,241,0.1)',
-            color: countdown <= 3 ? '#ef4444' : '#818cf8',
+            background: !imageLoaded ? 'rgba(99,102,241,0.08)' : countdown <= 3 ? 'rgba(239,68,68,0.15)' : 'rgba(99,102,241,0.1)',
+            color: !imageLoaded ? 'var(--text-muted)' : countdown <= 3 ? '#ef4444' : '#818cf8',
             fontWeight: 600, transition: 'all 0.5s'
           }}>
             <Clock size={16} />
-            Closes in {countdown}s
+            {!imageLoaded ? 'Loading image...' : `Closes in ${countdown}s`}
           </div>
         )}
 
@@ -199,12 +200,22 @@ export default function ViewImage() {
       </div>
 
       <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem', gridTemplateColumns: '1fr' }}>
+        {/* Loading spinner before image is ready */}
+        {!imageLoaded && (
+          <div style={{ textAlign: 'center', color: 'var(--primary)', padding: '3rem' }}>
+            <div className="spin" style={{ width: '48px', height: '48px', border: '4px solid rgba(99,102,241,0.2)', borderTopColor: 'var(--primary)', borderRadius: '50%', margin: '0 auto 1rem' }} />
+            <p style={{ color: 'var(--text-muted)' }}>Loading image...</p>
+          </div>
+        )}
+
         <img
           src={imageUrl}
           alt="Shared content"
           onContextMenu={(e) => e.preventDefault()}
           draggable={false}
+          onLoad={() => setImageLoaded(true)}
           style={{
+            display: imageLoaded ? 'block' : 'none',
             maxWidth: '100%',
             maxHeight: '65vh',
             objectFit: 'contain',
