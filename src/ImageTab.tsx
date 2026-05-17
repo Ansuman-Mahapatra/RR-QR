@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import QRCodeStyling from 'qr-code-styling';
-import { Download, Clock, Loader2, Sparkles, Globe, Upload, Image as ImageIcon, Eye, X } from 'lucide-react';
+import { Download, Clock, Loader2, Sparkles, Globe, Upload, Image as ImageIcon, Eye, X, Images } from 'lucide-react';
+import MultiImageTab from './MultiImageTab';
 import './index.css';
 
 interface ImageTabProps {
@@ -9,6 +10,7 @@ interface ImageTabProps {
 }
 
 export default function ImageTab({ dotColor, bgColor }: ImageTabProps) {
+  const [imageSubTab, setImageSubTab] = useState<'single' | 'multi'>('single');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [mode, setMode] = useState<'expiring' | 'viewonly'>('viewonly');
@@ -129,7 +131,26 @@ export default function ImageTab({ dotColor, bgColor }: ImageTabProps) {
     : '';
 
   return (
-    <div className="image-tab-layout">
+    <div>
+      {/* Sub-tab toggle: Single / Multi */}
+      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', background: 'rgba(15,23,42,0.4)', padding: '0.4rem', borderRadius: '12px', border: '1px solid var(--card-border)' }}>
+        <button
+          onClick={() => setImageSubTab('single')}
+          style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.95rem', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: imageSubTab === 'single' ? 'var(--primary)' : 'transparent', color: imageSubTab === 'single' ? 'white' : 'var(--text-muted)' }}>
+          <ImageIcon size={16} /> Single Image
+        </button>
+        <button
+          onClick={() => setImageSubTab('multi')}
+          style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.95rem', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: imageSubTab === 'multi' ? 'var(--primary)' : 'transparent', color: imageSubTab === 'multi' ? 'white' : 'var(--text-muted)' }}>
+          <Images size={16} /> Multi Image
+        </button>
+      </div>
+
+      {/* Multi Image Section */}
+      {imageSubTab === 'multi' && <MultiImageTab dotColor={dotColor} bgColor={bgColor} />}
+
+      {/* Single Image Section */}
+      {imageSubTab === 'single' && <div className="image-tab-layout">
       {/* Controls */}
       <div className="controls-section">
 
@@ -248,6 +269,7 @@ export default function ImageTab({ dotColor, bgColor }: ImageTabProps) {
           </>
         )}
       </div>
+    </div>}
     </div>
   );
 }
