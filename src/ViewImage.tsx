@@ -84,6 +84,16 @@ export default function ViewImage() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [status, imageLoaded]);
 
+  // Disable right-click on entire page for view-only mode
+  useEffect(() => {
+    const isViewOnly = !searchParams.get('e');
+    if (!isViewOnly) return;
+
+    const block = (e: MouseEvent) => e.preventDefault();
+    document.addEventListener('contextmenu', block);
+    return () => document.removeEventListener('contextmenu', block);
+  }, [searchParams]);
+
   // --- UI states ---
 
   if (status === 'loading') {
