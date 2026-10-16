@@ -3,6 +3,9 @@ import QRCodeStyling from 'qr-code-styling';
 import { Download, Clock, Loader2, Sparkles, Globe, Link2, Image as ImageIcon, FileText } from 'lucide-react';
 import ImageTab from './ImageTab';
 import FileTab from './FileTab';
+import PinInputControl from './components/PinInputControl';
+import PinDisplayCard from './components/PinDisplayCard';
+import { generateRandomPin, hashPin } from './utils/security';
 import './index.css';
 
 export default function App() {
@@ -18,6 +21,10 @@ export default function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGenerated, setIsGenerated] = useState(false);
 
+  // 4-Digit Passcode state
+  const [pin, setPin] = useState(generateRandomPin());
+  const [pinEnabled, setPinEnabled] = useState(true);
+
   const qrRef = useRef<HTMLDivElement>(null);
   const qrCode = useRef<QRCodeStyling | null>(null);
 
@@ -27,7 +34,7 @@ export default function App() {
     return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="${bg}" rx="25"/><text x="50" y="55" font-family="sans-serif" font-weight="bold" font-size="50" fill="${fill}" text-anchor="middle" dominant-baseline="middle">RR</text></svg>`;
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!url.trim()) return;
     let finalUrl = url.trim();
     if (!/^https?:\/\//i.test(finalUrl)) finalUrl = 'https://' + finalUrl;
@@ -35,20 +42,31 @@ export default function App() {
     setIsGenerating(true);
     setIsGenerated(false);
 
+    let codeHash = '';
+    if (pinEnabled && pin.trim().length === 4) {
+      codeHash = await hashPin(pin.trim());
+    }
+
     setTimeout(() => {
+      const origin = window.location.origin;
       if (mode === 'expiring') {
         // 1-hour expiry
         const timeMs = Date.now() + 1 * 60 * 60 * 1000;
         setExpiryTime(timeMs);
-        setEncodedUrl(`${window.location.origin}/r?t=${encodeURIComponent(finalUrl)}&e=${timeMs}`);
+        const codeQuery = codeHash ? `&c=${codeHash}` : '';
+        setEncodedUrl(`${origin}/r?t=${encodeURIComponent(finalUrl)}&e=${timeMs}${codeQuery}&m=expiring`);
       } else {
-        // Truly permanent — encode raw URL directly
+        // Permanent link
         setExpiryTime(null);
-        setEncodedUrl(finalUrl);
+        if (codeHash) {
+          setEncodedUrl(`${origin}/r?t=${encodeURIComponent(finalUrl)}&c=${codeHash}&m=direct`);
+        } else {
+          setEncodedUrl(finalUrl);
+        }
       }
       setIsGenerating(false);
       setIsGenerated(true);
-    }, 1500);
+    }, 1200);
   };
 
   useEffect(() => {
@@ -68,7 +86,13 @@ export default function App() {
     if (qrRef.current) { qrRef.current.innerHTML = ''; qrCode.current.append(qrRef.current); }
   }, [isGenerated, encodedUrl, dotColor, bgColor]);
 
-  const handleDownload = () => qrCode.current?.download({ name: mode === 'expiring' ? "RR-1hr-qr" : "RR-permanent-qr", extension: "png" });
+  const handleDownload = () => {
+    const pinSuffix = pinEnabled && pin ? `-[PIN-${pin}]` : '';
+    qrCode.current?.download({
+      name: mode === 'expiring' ? `RR-1hr-qr${pinSuffix}` : `RR-permanent-qr${pinSuffix}`,
+      extension: "png"
+    });
+  };
 
   const formattedTime = expiryTime ? new Date(expiryTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
@@ -76,7 +100,7 @@ export default function App() {
     <div className="app-container">
       <div className="header">
         <h1>Smart QR Generator</h1>
-        <p>Create modern, round QR codes with dynamic features</p>
+        <p>Create modern, round QR codes with 4-digit security & designation controls</p>
       </div>
 
       {/* Main Tab Navigation */}
@@ -129,6 +153,16 @@ export default function App() {
                 placeholder="Paste your link here (e.g. google.com)" />
             </div>
 
+            {/* 4-Digit Passcode Control */}
+            <PinInputControl
+              pin={pin}
+              setPin={(newPin) => { setPin(newPin); setIsGenerated(false); }}
+              enabled={pinEnabled}
+              setEnabled={(val) => { setPinEnabled(val); setIsGenerated(false); }}
+              onRegenerate={() => { setPin(generateRandomPin()); setIsGenerated(false); }}
+              description="Recipient must enter this 4-digit code to access destination."
+            />
+
             <button className="btn-primary" onClick={handleGenerate}
               disabled={isGenerating || !url.trim()}
               style={{ width: '100%', marginBottom: '1rem', opacity: (!url.trim() || isGenerating) ? 0.7 : 1 }}>
@@ -157,7 +191,7 @@ export default function App() {
             {isGenerating && (
               <div style={{ textAlign: 'center', color: 'var(--primary)', padding: '2rem' }}>
                 <Loader2 size={64} className="spin" style={{ marginBottom: '1rem' }} />
-                <p>Encoding your link...</p>
+                <p>Encoding your link & security code...</p>
               </div>
             )}
             {isGenerated && (
@@ -165,6 +199,16 @@ export default function App() {
                 <div className="qr-container" style={{ backgroundColor: bgColor, borderRadius: '24px', padding: '10px' }}>
                   <div ref={qrRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }} />
                 </div>
+
+                {pinEnabled && pin && (
+                  <PinDisplayCard
+                    pin={pin}
+                    designationType="link"
+                    customDesignation={mode === 'expiring' ? '1-Hour Expiring' : 'Permanent Link'}
+                    note="Recipient must enter this 4-digit code at the start to open the link."
+                  />
+                )}
+
                 {mode === 'expiring' && expiryTime && (
                   <div style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '0.5rem 1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>
                     <Clock size={16} /> Valid until {formattedTime}

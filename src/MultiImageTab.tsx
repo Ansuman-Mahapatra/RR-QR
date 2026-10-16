@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import QRCodeStyling from 'qr-code-styling';
 import { Download, Loader2, Sparkles, Upload, Image as ImageIcon, X } from 'lucide-react';
+import PinInputControl from './components/PinInputControl';
+import PinDisplayCard from './components/PinDisplayCard';
+import { generateRandomPin, hashPin } from './utils/security';
 import './index.css';
 
 const IMGBB_KEY = '1ee54d2dcc1b17afca1931ceed340d2f';
@@ -18,6 +21,10 @@ export default function MultiImageTab({ dotColor, bgColor }: MultiImageTabProps)
   const [encodedUrl, setEncodedUrl] = useState('');
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
+
+  // 4-Digit Passcode state
+  const [pin, setPin] = useState(generateRandomPin());
+  const [pinEnabled, setPinEnabled] = useState(true);
 
   const qrRef = useRef<HTMLDivElement>(null);
   const qrCode = useRef<QRCodeStyling | null>(null);
@@ -79,9 +86,15 @@ export default function MultiImageTab({ dotColor, bgColor }: MultiImageTabProps)
         setProgress(Math.round(((i + 1) / files.length) * 100));
       }
 
+      let codeHash = '';
+      if (pinEnabled && pin.trim().length === 4) {
+        codeHash = await hashPin(pin.trim());
+      }
+      const codeParam = codeHash ? `&c=${codeHash}` : '';
+
       const currentDomain = window.location.origin;
       const encoded = btoa(JSON.stringify(uploadedUrls));
-      const finalQrUrl = `${currentDomain}/gallery?imgs=${encoded}`;
+      const finalQrUrl = `${currentDomain}/gallery?imgs=${encoded}${codeParam}`;
 
       setEncodedUrl(finalQrUrl);
       setIsGenerated(true);
@@ -109,12 +122,14 @@ export default function MultiImageTab({ dotColor, bgColor }: MultiImageTabProps)
     if (qrRef.current) { qrRef.current.innerHTML = ''; qrCode.current.append(qrRef.current); }
   }, [isGenerated, encodedUrl, dotColor, bgColor]);
 
-  const handleDownloadQR = () => qrCode.current?.download({ name: 'RR-gallery-qr', extension: 'png' });
+  const handleDownloadQR = () => {
+    const pinSuffix = pinEnabled && pin ? `-[PIN-${pin}]` : '';
+    qrCode.current?.download({ name: `RR-gallery-qr${pinSuffix}`, extension: 'png' });
+  };
 
   return (
     <div className="image-tab-layout">
       <div className="controls-section">
-
         <div className="form-group">
           <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             Upload Images
@@ -145,8 +160,18 @@ export default function MultiImageTab({ dotColor, bgColor }: MultiImageTabProps)
           </div>
         )}
 
+        {/* 4-Digit Passcode Control */}
+        <PinInputControl
+          pin={pin}
+          setPin={(newPin) => { setPin(newPin); setIsGenerated(false); }}
+          enabled={pinEnabled}
+          setEnabled={(val) => { setPinEnabled(val); setIsGenerated(false); }}
+          onRegenerate={() => { setPin(generateRandomPin()); setIsGenerated(false); }}
+          description="Recipient must enter this 4-digit code to view & download gallery images."
+        />
+
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.6, padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid var(--input-border)' }}>
-          🖼 Whoever scans this QR will see all images in a <strong style={{ color: 'var(--text-main)' }}>gallery</strong> with individual download buttons.
+          🖼 Whoever scans this QR will unlock all images in a <strong style={{ color: 'var(--text-main)' }}>gallery</strong> with individual download buttons.
         </p>
 
         {/* Upload progress */}
@@ -196,8 +221,17 @@ export default function MultiImageTab({ dotColor, bgColor }: MultiImageTabProps)
             <div className="qr-container" style={{ backgroundColor: bgColor, borderRadius: '24px', padding: '10px' }}>
               <div ref={qrRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }} />
             </div>
+
+            {pinEnabled && pin && (
+              <PinDisplayCard
+                pin={pin}
+                designationType="gallery"
+                note="Recipient must enter this 4-digit code to unlock the gallery view."
+              />
+            )}
+
             <div style={{ background: 'rgba(99,102,241,0.1)', color: '#818cf8', padding: '0.5rem 1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>
-              🖼 {files.length} image{files.length > 1 ? 's' : ''} — Scan to open gallery
+              🖼 {files.length} image{files.length > 1 ? 's' : ''} — Scan & enter PIN to open
             </div>
             <button className="btn-primary" onClick={handleDownloadQR} style={{ background: '#10b981' }}>
               <Download size={20} /> Download QR PNG

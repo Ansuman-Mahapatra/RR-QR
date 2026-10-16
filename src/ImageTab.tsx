@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import QRCodeStyling from 'qr-code-styling';
 import { Download, Clock, Loader2, Sparkles, Globe, Upload, Image as ImageIcon, Eye, X, Images } from 'lucide-react';
 import MultiImageTab from './MultiImageTab';
+import PinInputControl from './components/PinInputControl';
+import PinDisplayCard from './components/PinDisplayCard';
+import { generateRandomPin, hashPin } from './utils/security';
 import './index.css';
 
 interface ImageTabProps {
@@ -15,6 +18,10 @@ export default function ImageTab({ dotColor, bgColor }: ImageTabProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [mode, setMode] = useState<'expiring' | 'viewonly'>('viewonly');
   const IMGBB_KEY = '1ee54d2dcc1b17afca1931ceed340d2f';
+
+  // 4-Digit Passcode state
+  const [pin, setPin] = useState(generateRandomPin());
+  const [pinEnabled, setPinEnabled] = useState(true);
 
   const [isUploading, setIsUploading] = useState(false);
   const [isGenerated, setIsGenerated] = useState(false);
@@ -71,17 +78,23 @@ export default function ImageTab({ dotColor, bgColor }: ImageTabProps) {
       const hostedUrl = data.data.url;
       const currentDomain = window.location.origin;
 
+      let codeHash = '';
+      if (pinEnabled && pin.trim().length === 4) {
+        codeHash = await hashPin(pin.trim());
+      }
+      const codeParam = codeHash ? `&c=${codeHash}` : '';
+
       let finalQrUrl = '';
       if (mode === 'expiring') {
         // 24-hour expiry, download allowed (shown as "Permanent" to user)
         const timeMs = Date.now() + 24 * 60 * 60 * 1000;
         setExpiryTime(timeMs);
-        finalQrUrl = `${currentDomain}/view?img=${encodeURIComponent(hostedUrl)}&e=${timeMs}&m=e`;
+        finalQrUrl = `${currentDomain}/view?img=${encodeURIComponent(hostedUrl)}&e=${timeMs}&m=e${codeParam}`;
       } else {
         // 24-hour expiry, view-only (no download, once per device, 10s window)
         const timeMs = Date.now() + 24 * 60 * 60 * 1000;
         setExpiryTime(timeMs);
-        finalQrUrl = `${currentDomain}/view?img=${encodeURIComponent(hostedUrl)}&e=${timeMs}&m=v`;
+        finalQrUrl = `${currentDomain}/view?img=${encodeURIComponent(hostedUrl)}&e=${timeMs}&m=v${codeParam}`;
       }
 
       setEncodedUrl(finalQrUrl);
@@ -123,7 +136,8 @@ export default function ImageTab({ dotColor, bgColor }: ImageTabProps) {
   }, [isGenerated, encodedUrl, dotColor, bgColor]);
 
   const handleDownload = () => {
-    qrCode.current?.download({ name: 'RR-image-qr', extension: 'png' });
+    const pinSuffix = pinEnabled && pin ? `-[PIN-${pin}]` : '';
+    qrCode.current?.download({ name: `RR-image-qr${pinSuffix}`, extension: 'png' });
   };
 
   const formattedTime = expiryTime
@@ -150,126 +164,152 @@ export default function ImageTab({ dotColor, bgColor }: ImageTabProps) {
       {imageSubTab === 'multi' && <MultiImageTab dotColor={dotColor} bgColor={bgColor} />}
 
       {/* Single Image Section */}
-      {imageSubTab === 'single' && <div className="image-tab-layout">
-      {/* Controls */}
-      <div className="controls-section">
-
-        {/* Mode toggle */}
-        <div className="form-group">
-          <label>QR Code Type</label>
-          <div style={{ display: 'flex', gap: '1rem', background: 'var(--input-bg)', padding: '0.5rem', borderRadius: '12px', border: '1px solid var(--input-border)' }}>
-            <button
-              onClick={() => { setMode('viewonly'); setIsGenerated(false); }}
-              style={{
-                flex: 1, padding: '0.75rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                background: mode === 'viewonly' ? 'var(--primary)' : 'transparent',
-                color: mode === 'viewonly' ? 'white' : 'var(--text-main)',
-                fontWeight: 600, transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'
-              }}>
-              <Eye size={18} /> View Only
-            </button>
-            <button
-              onClick={() => { setMode('expiring'); setIsGenerated(false); }}
-              style={{
-                flex: 1, padding: '0.75rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                background: mode === 'expiring' ? 'var(--primary)' : 'transparent',
-                color: mode === 'expiring' ? 'white' : 'var(--text-main)',
-                fontWeight: 600, transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'
-              }}>
-              <Globe size={18} /> Permanent
-            </button>
-          </div>
-        </div>
-
-        {/* File Upload */}
-        <div className="form-group">
-          <label>Upload Image / Logo</label>
-          <div className="file-upload">
-            <div className="file-upload-btn">
-              <Upload size={20} />
-              <span>{imageFile ? imageFile.name : 'Choose a photo or logo'}</span>
-            </div>
-            <input type="file" accept="image/*" onChange={handleFileSelect} />
-          </div>
-          {imagePreview && (
-            <div style={{ marginTop: '0.75rem', position: 'relative', display: 'inline-block' }}>
-              <img
-                src={imagePreview}
-                alt="Preview"
-                style={{ width: '100%', maxHeight: '140px', objectFit: 'contain', borderRadius: '12px', border: '1px solid var(--input-border)' }}
-              />
-              <button
-                onClick={() => { setImageFile(null); setImagePreview(null); setIsGenerated(false); }}
-                style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%', color: 'white', width: '24px', height: '24px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <X size={14} />
-              </button>
-            </div>
-          )}
-        </div>
-
-
-
-        {error && (
-          <div style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '0.75rem 1rem', borderRadius: '10px', fontSize: '0.9rem' }}>
-            {error}
-          </div>
-        )}
-
-        <button
-          className="btn-primary"
-          onClick={handleGenerate}
-          disabled={isUploading || !imageFile}
-          style={{ width: '100%', opacity: (isUploading || !imageFile) ? 0.7 : 1 }}
-        >
-          {isUploading ? (
-            <><Loader2 size={20} className="spin" /> Uploading & Generating...</>
-          ) : (
-            <><Sparkles size={20} /> Generate Image QR</>
-          )}
-        </button>
-      </div>
-
-      {/* Preview */}
-      <div className="preview-section">
-        {!isUploading && !isGenerated && (
-          <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
-            <ImageIcon size={64} style={{ opacity: 0.2, marginBottom: '1rem' }} />
-            <p>Upload an image and click Generate</p>
-          </div>
-        )}
-
-        {isUploading && (
-          <div style={{ textAlign: 'center', color: 'var(--primary)', padding: '2rem' }}>
-            <Loader2 size={64} className="spin" style={{ marginBottom: '1rem' }} />
-            <p>Uploading image & generating QR...</p>
-          </div>
-        )}
-
-        {isGenerated && (
-          <>
-            <div className="qr-container" style={{ backgroundColor: bgColor, borderRadius: '24px', padding: '10px' }}>
-              <div ref={qrRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }} />
+      {imageSubTab === 'single' && (
+        <div className="image-tab-layout">
+          {/* Controls */}
+          <div className="controls-section">
+            {/* Mode toggle */}
+            <div className="form-group">
+              <label>Designation Mode</label>
+              <div style={{ display: 'flex', gap: '1rem', background: 'var(--input-bg)', padding: '0.5rem', borderRadius: '12px', border: '1px solid var(--input-border)' }}>
+                <button
+                  onClick={() => { setMode('viewonly'); setIsGenerated(false); }}
+                  style={{
+                    flex: 1, padding: '0.75rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                    background: mode === 'viewonly' ? 'var(--primary)' : 'transparent',
+                    color: mode === 'viewonly' ? 'white' : 'var(--text-main)',
+                    fontWeight: 600, transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'
+                  }}>
+                  <Eye size={18} /> View Only
+                </button>
+                <button
+                  onClick={() => { setMode('expiring'); setIsGenerated(false); }}
+                  style={{
+                    flex: 1, padding: '0.75rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                    background: mode === 'expiring' ? 'var(--primary)' : 'transparent',
+                    color: mode === 'expiring' ? 'white' : 'var(--text-main)',
+                    fontWeight: 600, transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'
+                  }}>
+                  <Globe size={18} /> Permanent
+                </button>
+              </div>
             </div>
 
-            {mode === 'expiring' && expiryTime && (
-              <div style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '0.5rem 1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>
-                <Clock size={16} /> Valid until {formattedTime}
+            {/* File Upload */}
+            <div className="form-group">
+              <label>Upload Image / Logo</label>
+              <div className="file-upload">
+                <div className="file-upload-btn">
+                  <Upload size={20} />
+                  <span>{imageFile ? imageFile.name : 'Choose a photo or logo'}</span>
+                </div>
+                <input type="file" accept="image/*" onChange={handleFileSelect} />
+              </div>
+              {imagePreview && (
+                <div style={{ marginTop: '0.75rem', position: 'relative', display: 'inline-block' }}>
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    style={{ width: '100%', maxHeight: '140px', objectFit: 'contain', borderRadius: '12px', border: '1px solid var(--input-border)' }}
+                  />
+                  <button
+                    onClick={() => { setImageFile(null); setImagePreview(null); setIsGenerated(false); }}
+                    style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%', color: 'white', width: '24px', height: '24px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* 4-Digit Passcode Control */}
+            <PinInputControl
+              pin={pin}
+              setPin={(newPin) => { setPin(newPin); setIsGenerated(false); }}
+              enabled={pinEnabled}
+              setEnabled={(val) => { setPinEnabled(val); setIsGenerated(false); }}
+              onRegenerate={() => { setPin(generateRandomPin()); setIsGenerated(false); }}
+              description={
+                mode === 'viewonly'
+                  ? 'Recipient must enter this 4-digit code to start the 10-second viewing window.'
+                  : 'Recipient must enter this 4-digit code to unlock the download button.'
+              }
+            />
+
+            {error && (
+              <div style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '0.75rem 1rem', borderRadius: '10px', fontSize: '0.9rem' }}>
+                {error}
               </div>
             )}
 
-            {mode === 'viewonly' && (
-              <div style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', padding: '0.5rem 1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>
-                <Globe size={16} /> Permanent View Link
+            <button
+              className="btn-primary"
+              onClick={handleGenerate}
+              disabled={isUploading || !imageFile}
+              style={{ width: '100%', opacity: (isUploading || !imageFile) ? 0.7 : 1 }}
+            >
+              {isUploading ? (
+                <><Loader2 size={20} className="spin" /> Uploading & Generating...</>
+              ) : (
+                <><Sparkles size={20} /> Generate Image QR</>
+              )}
+            </button>
+          </div>
+
+          {/* Preview */}
+          <div className="preview-section">
+            {!isUploading && !isGenerated && (
+              <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
+                <ImageIcon size={64} style={{ opacity: 0.2, marginBottom: '1rem' }} />
+                <p>Upload an image and click Generate</p>
               </div>
             )}
 
-            <button className="btn-primary" onClick={handleDownload} style={{ background: '#10b981' }}>
-              <Download size={20} /> Download PNG
-            </button>
-          </>
-        )}
-      </div>
-    </div>}
+            {isUploading && (
+              <div style={{ textAlign: 'center', color: 'var(--primary)', padding: '2rem' }}>
+                <Loader2 size={64} className="spin" style={{ marginBottom: '1rem' }} />
+                <p>Uploading image & generating secure QR...</p>
+              </div>
+            )}
+
+            {isGenerated && (
+              <>
+                <div className="qr-container" style={{ backgroundColor: bgColor, borderRadius: '24px', padding: '10px' }}>
+                  <div ref={qrRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }} />
+                </div>
+
+                {pinEnabled && pin && (
+                  <PinDisplayCard
+                    pin={pin}
+                    designationType={mode === 'viewonly' ? 'view' : 'download'}
+                    customDesignation={mode === 'viewonly' ? 'View Only (10s)' : 'Permanent Download'}
+                    note={
+                      mode === 'viewonly'
+                        ? 'Recipient must enter this 4-digit code to unlock the one-time 10-second viewing window.'
+                        : 'Recipient must enter this 4-digit code to unlock the image download.'
+                    }
+                  />
+                )}
+
+                {mode === 'expiring' && expiryTime && (
+                  <div style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '0.5rem 1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>
+                    <Clock size={16} /> Valid until {formattedTime}
+                  </div>
+                )}
+
+                {mode === 'viewonly' && (
+                  <div style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', padding: '0.5rem 1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>
+                    <Globe size={16} /> Permanent View Link
+                  </div>
+                )}
+
+                <button className="btn-primary" onClick={handleDownload} style={{ background: '#10b981' }}>
+                  <Download size={20} /> Download PNG
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

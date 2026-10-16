@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Clock, AlertTriangle, Eye, ShieldOff, Download } from 'lucide-react';
+import PasscodeGate from './components/PasscodeGate';
 import './index.css';
 
 const STORAGE_PREFIX = 'rr_viewed_';
@@ -13,55 +14,79 @@ export default function ViewImage() {
   >('loading');
   const [imageUrl, setImageUrl] = useState('');
   const [countdown, setCountdown] = useState(VIEW_DURATION_SEC);
-  const [userIp, setUserIp] = useState('');
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const codeParam = searchParams.get('c');
+  const modeParam = searchParams.get('m'); // 'v' = view-only, 'e' = expiring/download
+  const isViewOnly = modeParam === 'v';
 
   useEffect(() => {
     const img = searchParams.get('img');
     const expiry = searchParams.get('e');
-    const modeParam = searchParams.get('m'); // 'v' = view-only, 'e' = 1hr expiring
 
-    if (!img) { setStatus('invalid'); return; }
+    if (!img) {
+      setStatus('invalid');
+      return;
+    }
 
     const decoded = decodeURIComponent(img);
     setImageUrl(decoded);
 
-    // Check expiry for all modes
+    // Check expiry
     if (expiry && Date.now() > parseInt(expiry, 10)) {
       setStatus('expired');
       return;
     }
 
-    if (modeParam === 'v') {
-      // View-only: check once-per-device lock
+    // If view-only, check if this device already viewed it
+    if (isViewOnly) {
       const storageKey = STORAGE_PREFIX + btoa(decoded).slice(0, 32);
       const existing = localStorage.getItem(storageKey);
-      if (existing) { setStatus('already_viewed'); return; }
+      if (existing) {
+        setStatus('already_viewed');
+        return;
+      }
+    }
 
-      // Get IP and mark as viewed
+    // If no passcode required, unlock immediately
+    if (!codeParam) {
+      setIsUnlocked(true);
+    }
+  }, [searchParams, isViewOnly, codeParam]);
+
+  // Once unlocked (via passcode or direct), activate viewing / download
+  const handleUnlockSuccess = () => {
+    setIsUnlocked(true);
+
+    if (isViewOnly) {
+      const storageKey = STORAGE_PREFIX + btoa(imageUrl).slice(0, 32);
+      // Mark as viewed on this device
       fetch('https://api.ipify.org?format=json')
         .then(r => r.json())
-        .then(data => setUserIp(data.ip || 'unknown'))
-        .catch(() => setUserIp('unknown'))
-        .finally(() => {
+        .then(data => {
           localStorage.setItem(storageKey, JSON.stringify({
-            ip: userIp,
+            ip: data.ip || 'unknown',
             viewedAt: new Date().toISOString()
           }));
+        })
+        .catch(() => {
+          localStorage.setItem(storageKey, JSON.stringify({
+            ip: 'unknown',
+            viewedAt: new Date().toISOString()
+          }));
+        })
+        .finally(() => {
           setStatus('viewing');
         });
     } else {
-      // 1-hr expiring or URL redirect mode — just show
       setStatus('viewing');
     }
-
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [searchParams]);
+  };
 
   // Start countdown only AFTER image has fully loaded (view-only mode only)
   useEffect(() => {
-    const isViewOnly = searchParams.get('m') === 'v';
     if (!imageLoaded || status !== 'viewing' || !isViewOnly) return;
 
     setCountdown(VIEW_DURATION_SEC);
@@ -77,27 +102,17 @@ export default function ViewImage() {
     }, 1000);
 
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [status, imageLoaded]);
+  }, [status, imageLoaded, isViewOnly]);
 
   // Disable right-click on entire page for view-only mode
   useEffect(() => {
-    const isViewOnly = searchParams.get('m') === 'v';
     if (!isViewOnly) return;
-
     const block = (e: MouseEvent) => e.preventDefault();
     document.addEventListener('contextmenu', block);
     return () => document.removeEventListener('contextmenu', block);
-  }, [searchParams]);
+  }, [isViewOnly]);
 
   // --- UI states ---
-
-  if (status === 'loading') {
-    return (
-      <div className="app-container" style={{ textAlign: 'center', marginTop: '20vh' }}>
-        <p style={{ color: 'var(--text-muted)' }}>Verifying access...</p>
-      </div>
-    );
-  }
 
   if (status === 'invalid') {
     return (
@@ -120,7 +135,7 @@ export default function ViewImage() {
             Image Access Expired
           </h2>
           <p style={{ color: 'var(--text-muted)', textAlign: 'center', maxWidth: '380px' }}>
-            This QR code was valid for 1 hour only. Please ask the sender for a new one.
+            This QR code was valid for a limited time and has now expired. Please ask the sender for a new one.
           </p>
         </div>
       </div>
@@ -144,6 +159,23 @@ export default function ViewImage() {
     );
   }
 
+  // Passcode gate check: if passcode is required and not yet unlocked
+  if (codeParam && !isUnlocked) {
+    return (
+      <PasscodeGate
+        expectedHash={codeParam}
+        designationType={isViewOnly ? 'view' : 'download'}
+        title={isViewOnly ? 'View-Only Protected Image' : 'Protected Image Download'}
+        subtitle={
+          isViewOnly
+            ? 'This image is designated as View Only. Enter the 4-digit code to start your 10-second viewing window.'
+            : 'This image is designated for download. Enter the 4-digit code to unlock the download page.'
+        }
+        onSuccess={handleUnlockSuccess}
+      />
+    );
+  }
+
   if (status === 'time_up') {
     return (
       <div className="app-container" style={{ marginTop: '10vh' }}>
@@ -161,9 +193,6 @@ export default function ViewImage() {
     );
   }
 
-  // --- Viewing state ---
-  const isViewOnly = searchParams.get('m') === 'v';
-
   const handleDownload = async () => {
     try {
       const res = await fetch(imageUrl);
@@ -171,13 +200,13 @@ export default function ViewImage() {
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = 'image';
+      a.download = 'shared-image';
       a.click();
       URL.revokeObjectURL(blobUrl);
     } catch { /* silent */ }
   };
 
-  // 1-hr expiring mode → show a clean download page (don't display the image)
+  // Download designation mode → show download card
   if (!isViewOnly) {
     return (
       <div className="app-container" style={{ marginTop: '10vh', paddingBottom: '3rem' }}>
@@ -185,20 +214,20 @@ export default function ViewImage() {
           <h1 style={{ background: 'linear-gradient(to right, #818cf8, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: '2.5rem' }}>
             Image Download
           </h1>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', padding: '0.4rem 1rem', borderRadius: '12px', marginTop: '0.5rem', background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
-            <Clock size={14} /> 1-Hour Expiring Link
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', padding: '0.4rem 1rem', borderRadius: '12px', marginTop: '0.5rem', background: 'rgba(16,185,129,0.1)', color: '#34d399' }}>
+            <Download size={14} /> Download Designation Unlocked
           </div>
         </div>
 
         <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '3rem 2rem', gridTemplateColumns: '1fr', maxWidth: '480px', margin: '0 auto' }}>
           <div style={{ width: '90px', height: '90px', borderRadius: '20px', background: 'rgba(99,102,241,0.1)', border: '2px solid rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem' }}>
-            <Eye size={44} style={{ color: 'var(--primary)' }} />
+            <Download size={44} style={{ color: 'var(--primary)' }} />
           </div>
           <h2 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '0.4rem', textAlign: 'center' }}>
             Shared Image
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2rem', textAlign: 'center' }}>
-            An image has been shared with you via a secure 1-hour QR link.
+            Code verified. Click the button below to download the shared image.
           </p>
           <button onClick={handleDownload} style={{
             background: 'var(--primary)', color: 'white',
@@ -214,7 +243,7 @@ export default function ViewImage() {
     );
   }
 
-  // View-only mode → show image with countdown
+  // View-only mode → show image with 10s countdown
   return (
     <div className="app-container" style={{ marginTop: '5vh', paddingBottom: '3rem' }}>
       <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
@@ -266,4 +295,3 @@ export default function ViewImage() {
     </div>
   );
 }
-

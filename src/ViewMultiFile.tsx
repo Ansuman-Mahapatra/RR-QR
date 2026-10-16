@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Download, FileText } from 'lucide-react';
+import PasscodeGate from './components/PasscodeGate';
 import './index.css';
 
 interface FileData {
@@ -12,6 +13,9 @@ export default function ViewMultiFile() {
   const [searchParams] = useSearchParams();
   const [files, setFiles] = useState<FileData[]>([]);
   const [status, setStatus] = useState<'loading' | 'valid' | 'invalid'>('loading');
+  const [isUnlocked, setIsUnlocked] = useState(false);
+
+  const codeParam = searchParams.get('c');
 
   useEffect(() => {
     const data = searchParams.get('data');
@@ -24,15 +28,11 @@ export default function ViewMultiFile() {
     } catch {
       setStatus('invalid');
     }
-  }, [searchParams]);
 
-  if (status === 'loading') {
-    return (
-      <div className="app-container" style={{ textAlign: 'center', marginTop: '20vh' }}>
-        <p style={{ color: 'var(--text-muted)' }}>Loading files...</p>
-      </div>
-    );
-  }
+    if (!codeParam) {
+      setIsUnlocked(true);
+    }
+  }, [searchParams, codeParam]);
 
   if (status === 'invalid') {
     return (
@@ -46,13 +46,26 @@ export default function ViewMultiFile() {
     );
   }
 
+  // Passcode gate check
+  if (codeParam && !isUnlocked) {
+    return (
+      <PasscodeGate
+        expectedHash={codeParam}
+        designationType="file"
+        title="Protected File Bundle"
+        subtitle={`Enter the 4-digit code provided by the sender to access and download ${files.length > 0 ? `these ${files.length} documents` : 'these files'}.`}
+        onSuccess={() => setIsUnlocked(true)}
+      />
+    );
+  }
+
   return (
     <div className="app-container" style={{ marginTop: '5vh', paddingBottom: '4rem' }}>
       <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
         <h1 style={{ background: 'linear-gradient(to right, #818cf8, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: '2.5rem' }}>
           File Bundle
         </h1>
-        <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>{files.length} file{files.length > 1 ? 's' : ''} shared via QR</p>
+        <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>{files.length} file{files.length > 1 ? 's' : ''} unlocked via Passcode</p>
       </div>
 
       <div className="glass-card" style={{ maxWidth: '600px', margin: '0 auto', gridTemplateColumns: '1fr', padding: '2rem' }}>

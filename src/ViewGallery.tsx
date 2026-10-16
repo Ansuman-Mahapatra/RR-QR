@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Download } from 'lucide-react';
+import PasscodeGate from './components/PasscodeGate';
 import './index.css';
 
 export default function ViewGallery() {
   const [searchParams] = useSearchParams();
   const [images, setImages] = useState<string[]>([]);
   const [status, setStatus] = useState<'loading' | 'valid' | 'invalid'>('loading');
+  const [isUnlocked, setIsUnlocked] = useState(false);
+
+  const codeParam = searchParams.get('c');
 
   useEffect(() => {
     const imgs = searchParams.get('imgs');
@@ -19,7 +23,11 @@ export default function ViewGallery() {
     } catch {
       setStatus('invalid');
     }
-  }, [searchParams]);
+
+    if (!codeParam) {
+      setIsUnlocked(true);
+    }
+  }, [searchParams, codeParam]);
 
   const handleDownload = async (url: string, index: number) => {
     try {
@@ -28,7 +36,7 @@ export default function ViewGallery() {
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = `image-${index + 1}`;
+      a.download = `gallery-image-${index + 1}`;
       a.click();
       URL.revokeObjectURL(blobUrl);
     } catch { /* silent */ }
@@ -37,17 +45,9 @@ export default function ViewGallery() {
   const handleDownloadAll = async () => {
     for (let i = 0; i < images.length; i++) {
       await handleDownload(images[i], i);
-      await new Promise(r => setTimeout(r, 400)); // slight delay between downloads
+      await new Promise(r => setTimeout(r, 400));
     }
   };
-
-  if (status === 'loading') {
-    return (
-      <div className="app-container" style={{ textAlign: 'center', marginTop: '20vh' }}>
-        <p style={{ color: 'var(--text-muted)' }}>Loading gallery...</p>
-      </div>
-    );
-  }
 
   if (status === 'invalid') {
     return (
@@ -61,13 +61,26 @@ export default function ViewGallery() {
     );
   }
 
+  // Passcode gate check
+  if (codeParam && !isUnlocked) {
+    return (
+      <PasscodeGate
+        expectedHash={codeParam}
+        designationType="gallery"
+        title="Protected Image Gallery"
+        subtitle="This gallery contains shared images. Enter the 4-digit code provided by the sender to view and download them."
+        onSuccess={() => setIsUnlocked(true)}
+      />
+    );
+  }
+
   return (
     <div className="app-container" style={{ marginTop: '5vh', paddingBottom: '4rem' }}>
       <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
         <h1 style={{ background: 'linear-gradient(to right, #818cf8, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: '2.5rem' }}>
           Image Gallery
         </h1>
-        <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>{images.length} image{images.length > 1 ? 's' : ''} shared via QR</p>
+        <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>{images.length} image{images.length > 1 ? 's' : ''} unlocked via Passcode</p>
 
         {/* Download All button */}
         <button
@@ -79,7 +92,7 @@ export default function ViewGallery() {
             display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem',
             boxShadow: '0 8px 20px rgba(99,102,241,0.3)'
           }}>
-          <Download size={20} /> Download All
+          <Download size={20} /> Download All Images
         </button>
       </div>
 
@@ -104,7 +117,7 @@ export default function ViewGallery() {
                   fontFamily: 'inherit', fontWeight: 600, fontSize: '0.85rem',
                   display: 'flex', alignItems: 'center', gap: '0.35rem'
                 }}>
-                <Download size={14} /> Download
+                  <Download size={14} /> Download
               </button>
             </div>
           </div>

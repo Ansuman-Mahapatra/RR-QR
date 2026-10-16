@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import QRCodeStyling from 'qr-code-styling';
 import { Download, Loader2, Sparkles, Upload, FileText, X, Files } from 'lucide-react';
 import MultiFileTab from './MultiFileTab';
+import PinInputControl from './components/PinInputControl';
+import PinDisplayCard from './components/PinDisplayCard';
+import { generateRandomPin, hashPin } from './utils/security';
 import './index.css';
 
 interface FileTabProps {
@@ -16,6 +19,10 @@ export default function FileTab({ dotColor, bgColor }: FileTabProps) {
   const [isGenerated, setIsGenerated] = useState(false);
   const [encodedUrl, setEncodedUrl] = useState('');
   const [error, setError] = useState('');
+
+  // 4-Digit Passcode state
+  const [pin, setPin] = useState(generateRandomPin());
+  const [pinEnabled, setPinEnabled] = useState(true);
 
   const qrRef = useRef<HTMLDivElement>(null);
   const qrCode = useRef<QRCodeStyling | null>(null);
@@ -60,7 +67,14 @@ export default function FileTab({ dotColor, bgColor }: FileTabProps) {
 
       const filePageUrl = uploadData.data.downloadPage || `https://gofile.io/d/${uploadData.data.code}`;
       const currentDomain = window.location.origin;
-      const finalQrUrl = `${currentDomain}/viewfile?f=${encodeURIComponent(filePageUrl)}&name=${encodeURIComponent(file.name)}`;
+
+      let codeHash = '';
+      if (pinEnabled && pin.trim().length === 4) {
+        codeHash = await hashPin(pin.trim());
+      }
+      const codeParam = codeHash ? `&c=${codeHash}` : '';
+
+      const finalQrUrl = `${currentDomain}/viewfile?f=${encodeURIComponent(filePageUrl)}&name=${encodeURIComponent(file.name)}${codeParam}`;
 
       setEncodedUrl(finalQrUrl);
       setIsGenerated(true);
@@ -88,7 +102,10 @@ export default function FileTab({ dotColor, bgColor }: FileTabProps) {
     if (qrRef.current) { qrRef.current.innerHTML = ''; qrCode.current.append(qrRef.current); }
   }, [isGenerated, encodedUrl, dotColor, bgColor]);
 
-  const handleDownloadQR = () => qrCode.current?.download({ name: 'RR-file-qr', extension: 'png' });
+  const handleDownloadQR = () => {
+    const pinSuffix = pinEnabled && pin ? `-[PIN-${pin}]` : '';
+    qrCode.current?.download({ name: `RR-file-qr${pinSuffix}`, extension: 'png' });
+  };
 
   const formatSize = (bytes: number) => {
     if (bytes < 1024) return bytes + ' B';
@@ -116,89 +133,109 @@ export default function FileTab({ dotColor, bgColor }: FileTabProps) {
       {fileSubTab === 'multi' && <MultiFileTab dotColor={dotColor} bgColor={bgColor} />}
 
       {/* Single File Section */}
-      {fileSubTab === 'single' && <div className="image-tab-layout">
-        <div className="controls-section">
-
-        {/* File upload */}
-        <div className="form-group">
-          <label>Upload File / Document</label>
-          <div className="file-upload">
-            <div className="file-upload-btn">
-              <Upload size={20} />
-              <span>{file ? file.name : 'Choose a file (PDF, DOC, ZIP, etc.)'}</span>
-            </div>
-            <input
-              type="file"
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.csv,.json"
-              onChange={handleFileSelect}
-            />
-          </div>
-
-          {file && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.5rem', background: 'rgba(99,102,241,0.08)', padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid rgba(99,102,241,0.2)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <FileText size={18} style={{ color: 'var(--primary)' }} />
-                <div>
-                  <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{file.name}</p>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{formatSize(file.size)}</p>
+      {fileSubTab === 'single' && (
+        <div className="image-tab-layout">
+          <div className="controls-section">
+            {/* File upload */}
+            <div className="form-group">
+              <label>Upload File / Document</label>
+              <div className="file-upload">
+                <div className="file-upload-btn">
+                  <Upload size={20} />
+                  <span>{file ? file.name : 'Choose a file (PDF, DOC, ZIP, etc.)'}</span>
                 </div>
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.csv,.json"
+                  onChange={handleFileSelect}
+                />
               </div>
-              <button onClick={() => { setFile(null); setIsGenerated(false); }}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                <X size={18} />
-              </button>
+
+              {file && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.5rem', background: 'rgba(99,102,241,0.08)', padding: '0.6rem 1rem', borderRadius: '10px', border: '1px solid rgba(99,102,241,0.2)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <FileText size={18} style={{ color: 'var(--primary)' }} />
+                    <div>
+                      <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{file.name}</p>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{formatSize(file.size)}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => { setFile(null); setIsGenerated(false); }}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                    <X size={18} />
+                  </button>
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.6, padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid var(--input-border)' }}>
-          📎 Whoever scans this QR will see a <strong style={{ color: 'var(--text-main)' }}>secure download page</strong> with a button to get your file.
-        </p>
+            {/* 4-Digit Passcode Control */}
+            <PinInputControl
+              pin={pin}
+              setPin={(newPin) => { setPin(newPin); setIsGenerated(false); }}
+              enabled={pinEnabled}
+              setEnabled={(val) => { setPinEnabled(val); setIsGenerated(false); }}
+              onRegenerate={() => { setPin(generateRandomPin()); setIsGenerated(false); }}
+              description="Recipient must enter this 4-digit code to download the file."
+            />
 
-        {error && (
-          <div style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '0.75rem 1rem', borderRadius: '10px', fontSize: '0.9rem' }}>
-            {error}
-          </div>
-        )}
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.6, padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid var(--input-border)' }}>
+              📎 Whoever scans this QR will unlock a <strong style={{ color: 'var(--text-main)' }}>secure download page</strong> by giving the 4-digit passcode.
+            </p>
 
-        <button className="btn-primary" onClick={handleGenerate}
-          disabled={isUploading || !file}
-          style={{ width: '100%', opacity: (isUploading || !file) ? 0.7 : 1 }}>
-          {isUploading
-            ? <><Loader2 size={20} className="spin" /> Uploading & Generating...</>
-            : <><Sparkles size={20} /> Generate File QR</>}
-        </button>
-      </div>
+            {error && (
+              <div style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '0.75rem 1rem', borderRadius: '10px', fontSize: '0.9rem' }}>
+                {error}
+              </div>
+            )}
 
-      {/* Preview */}
-      <div className="preview-section">
-        {!isUploading && !isGenerated && (
-          <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
-            <FileText size={64} style={{ opacity: 0.2, marginBottom: '1rem' }} />
-            <p>Upload a file and click Generate</p>
-          </div>
-        )}
-        {isUploading && (
-          <div style={{ textAlign: 'center', color: 'var(--primary)', padding: '2rem' }}>
-            <Loader2 size={64} className="spin" style={{ marginBottom: '1rem' }} />
-            <p>Uploading & generating QR...</p>
-          </div>
-        )}
-        {isGenerated && (
-          <>
-            <div className="qr-container" style={{ backgroundColor: bgColor, borderRadius: '24px', padding: '10px' }}>
-              <div ref={qrRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }} />
-            </div>
-            <div style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', padding: '0.5rem 1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>
-              📎 Scan to open download page
-            </div>
-            <button className="btn-primary" onClick={handleDownloadQR} style={{ background: '#10b981' }}>
-              <Download size={20} /> Download QR PNG
+            <button className="btn-primary" onClick={handleGenerate}
+              disabled={isUploading || !file}
+              style={{ width: '100%', opacity: (isUploading || !file) ? 0.7 : 1 }}>
+              {isUploading
+                ? <><Loader2 size={20} className="spin" /> Uploading & Generating...</>
+                : <><Sparkles size={20} /> Generate File QR</>}
             </button>
-          </>
-        )}
-      </div>
-    </div>}
+          </div>
+
+          {/* Preview */}
+          <div className="preview-section">
+            {!isUploading && !isGenerated && (
+              <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
+                <FileText size={64} style={{ opacity: 0.2, marginBottom: '1rem' }} />
+                <p>Upload a file and click Generate</p>
+              </div>
+            )}
+            {isUploading && (
+              <div style={{ textAlign: 'center', color: 'var(--primary)', padding: '2rem' }}>
+                <Loader2 size={64} className="spin" style={{ marginBottom: '1rem' }} />
+                <p>Uploading & generating secure QR...</p>
+              </div>
+            )}
+            {isGenerated && (
+              <>
+                <div className="qr-container" style={{ backgroundColor: bgColor, borderRadius: '24px', padding: '10px' }}>
+                  <div ref={qrRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }} />
+                </div>
+
+                {pinEnabled && pin && (
+                  <PinDisplayCard
+                    pin={pin}
+                    designationType="file"
+                    note="Recipient must enter this 4-digit code to download the file."
+                  />
+                )}
+
+                <div style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', padding: '0.5rem 1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>
+                  📎 Protected File — Scan & enter PIN to download
+                </div>
+                <button className="btn-primary" onClick={handleDownloadQR} style={{ background: '#10b981' }}>
+                  <Download size={20} /> Download QR PNG
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
