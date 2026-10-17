@@ -3,7 +3,7 @@ import QRCodeStyling from 'qr-code-styling';
 import { Download, Loader2, Sparkles, Upload, FileText, X } from 'lucide-react';
 import PinInputControl from './components/PinInputControl';
 import PinDisplayCard from './components/PinDisplayCard';
-import { generateRandomPin, hashPin } from './utils/security';
+import { generateRandomPin, hashPin, saveTransferRecord } from './utils/security';
 import './index.css';
 
 interface MultiFileTabProps {
@@ -19,9 +19,10 @@ export default function MultiFileTab({ dotColor, bgColor }: MultiFileTabProps) {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
 
-  // 4-Digit Passcode state
-  const [pin, setPin] = useState(generateRandomPin());
+  // 4-Digit Passcode state - generated dynamically upon creation
+  const [pin, setPin] = useState('');
   const [pinEnabled, setPinEnabled] = useState(true);
+  const [isCustomPin, setIsCustomPin] = useState(false);
 
   const qrRef = useRef<HTMLDivElement>(null);
   const qrCode = useRef<QRCodeStyling | null>(null);
@@ -35,7 +36,7 @@ export default function MultiFileTab({ dotColor, bgColor }: MultiFileTabProps) {
   const handleFilesSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
     if (selected.length === 0) return;
-    const combined = [...files, ...selected].slice(0, 10); // max 10 files
+    const combined = [...files, ...selected].slice(0, 10);
     setFiles(combined);
     setIsGenerated(false);
     setError('');
@@ -63,13 +64,11 @@ export default function MultiFileTab({ dotColor, bgColor }: MultiFileTabProps) {
 
     try {
       for (let i = 0; i < files.length; i++) {
-        // Step 1: Get a GoFile server
         const serverRes = await fetch('https://api.gofile.io/servers');
         const serverData = await serverRes.json();
         if (serverData.status !== 'ok') throw new Error('Could not connect to upload server.');
         const server = serverData.data.servers[0].name;
 
-        // Step 2: Upload the file
         const formData = new FormData();
         formData.append('file', files[i]);
 
@@ -86,17 +85,34 @@ export default function MultiFileTab({ dotColor, bgColor }: MultiFileTabProps) {
         setProgress(Math.round(((i + 1) / files.length) * 100));
       }
 
+      // Dynamic PIN generated upon creation
+      let dynamicPin = '';
       let codeHash = '';
-      if (pinEnabled && pin.trim().length === 4) {
-        codeHash = await hashPin(pin.trim());
+      if (pinEnabled) {
+        dynamicPin = (isCustomPin && pin.trim().length === 4) ? pin.trim() : generateRandomPin();
+        setPin(dynamicPin);
+        codeHash = await hashPin(dynamicPin);
+      } else {
+        setPin('');
       }
-      const codeParam = codeHash ? `&c=${codeHash}` : '';
 
+      const codeParam = codeHash ? `&c=${codeHash}` : '';
       const currentDomain = window.location.origin;
       const encoded = btoa(encodeURIComponent(JSON.stringify(uploadedFiles)));
       const finalQrUrl = `${currentDomain}/multifile?data=${encoded}${codeParam}`;
 
       setEncodedUrl(finalQrUrl);
+
+      if (dynamicPin) {
+        saveTransferRecord({
+          pin: dynamicPin,
+          url: finalQrUrl,
+          type: 'multifile',
+          title: `${files.length} Files Bundle`,
+          createdAt: Date.now(),
+        });
+      }
+
       setIsGenerated(true);
     } catch (err: any) {
       setError(err.message || 'Upload failed. Please try again.');
@@ -110,7 +126,7 @@ export default function MultiFileTab({ dotColor, bgColor }: MultiFileTabProps) {
     const opts: any = {
       width: 300, height: 300, type: 'svg', data: encodedUrl,
       image: getRRLogo(),
-      qrOptions: { errorCorrectionLevel: 'L' }, // 'L' because payload could be large
+      qrOptions: { errorCorrectionLevel: 'L' },
       dotsOptions: { color: dotColor, type: 'rounded' },
       backgroundOptions: { color: bgColor },
       imageOptions: { crossOrigin: 'anonymous', margin: 5, imageSize: 0.3 },
@@ -170,14 +186,15 @@ export default function MultiFileTab({ dotColor, bgColor }: MultiFileTabProps) {
           </div>
         )}
 
-        {/* 4-Digit Passcode Control */}
+        {/* Dynamic 4-Digit Passcode Control */}
         <PinInputControl
           pin={pin}
           setPin={(newPin) => { setPin(newPin); setIsGenerated(false); }}
           enabled={pinEnabled}
           setEnabled={(val) => { setPinEnabled(val); setIsGenerated(false); }}
-          onRegenerate={() => { setPin(generateRandomPin()); setIsGenerated(false); }}
-          description="Recipient must enter this 4-digit code to view & download the file bundle."
+          isCustom={isCustomPin}
+          setIsCustom={setIsCustomPin}
+          description="A 4-digit code will be generated upon creation to unlock the file bundle."
         />
 
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.6, padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid var(--input-border)' }}>
@@ -237,7 +254,7 @@ export default function MultiFileTab({ dotColor, bgColor }: MultiFileTabProps) {
                 pin={pin}
                 designationType="file"
                 customDesignation="Bundle Access"
-                note="Recipient must enter this 4-digit code to view and download files."
+                note="Generated dynamically with this QR. Recipient must enter this code to view and download files."
               />
             )}
 

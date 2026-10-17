@@ -4,7 +4,7 @@ import { Download, Clock, Loader2, Sparkles, Globe, Upload, Image as ImageIcon, 
 import MultiImageTab from './MultiImageTab';
 import PinInputControl from './components/PinInputControl';
 import PinDisplayCard from './components/PinDisplayCard';
-import { generateRandomPin, hashPin } from './utils/security';
+import { generateRandomPin, hashPin, saveTransferRecord } from './utils/security';
 import './index.css';
 
 interface ImageTabProps {
@@ -19,9 +19,10 @@ export default function ImageTab({ dotColor, bgColor }: ImageTabProps) {
   const [mode, setMode] = useState<'expiring' | 'viewonly'>('viewonly');
   const IMGBB_KEY = '1ee54d2dcc1b17afca1931ceed340d2f';
 
-  // 4-Digit Passcode state
-  const [pin, setPin] = useState(generateRandomPin());
+  // 4-Digit Passcode state - generated upon QR creation
+  const [pin, setPin] = useState('');
   const [pinEnabled, setPinEnabled] = useState(true);
+  const [isCustomPin, setIsCustomPin] = useState(false);
 
   const [isUploading, setIsUploading] = useState(false);
   const [isGenerated, setIsGenerated] = useState(false);
@@ -61,7 +62,7 @@ export default function ImageTab({ dotColor, bgColor }: ImageTabProps) {
       const formData = new FormData();
       formData.append('image', imageFile);
       if (mode === 'expiring') {
-        formData.append('expiration', '3600'); // 1 hour in seconds
+        formData.append('expiration', '3600');
       }
 
       const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, {
@@ -78,26 +79,42 @@ export default function ImageTab({ dotColor, bgColor }: ImageTabProps) {
       const hostedUrl = data.data.url;
       const currentDomain = window.location.origin;
 
+      // Dynamically generate code on creation
+      let dynamicPin = '';
       let codeHash = '';
-      if (pinEnabled && pin.trim().length === 4) {
-        codeHash = await hashPin(pin.trim());
+      if (pinEnabled) {
+        dynamicPin = (isCustomPin && pin.trim().length === 4) ? pin.trim() : generateRandomPin();
+        setPin(dynamicPin);
+        codeHash = await hashPin(dynamicPin);
+      } else {
+        setPin('');
       }
+
       const codeParam = codeHash ? `&c=${codeHash}` : '';
 
       let finalQrUrl = '';
       if (mode === 'expiring') {
-        // 24-hour expiry, download allowed (shown as "Permanent" to user)
         const timeMs = Date.now() + 24 * 60 * 60 * 1000;
         setExpiryTime(timeMs);
         finalQrUrl = `${currentDomain}/view?img=${encodeURIComponent(hostedUrl)}&e=${timeMs}&m=e${codeParam}`;
       } else {
-        // 24-hour expiry, view-only (no download, once per device, 10s window)
         const timeMs = Date.now() + 24 * 60 * 60 * 1000;
         setExpiryTime(timeMs);
         finalQrUrl = `${currentDomain}/view?img=${encodeURIComponent(hostedUrl)}&e=${timeMs}&m=v${codeParam}`;
       }
 
       setEncodedUrl(finalQrUrl);
+
+      if (dynamicPin) {
+        saveTransferRecord({
+          pin: dynamicPin,
+          url: finalQrUrl,
+          type: 'image',
+          title: imageFile.name,
+          createdAt: Date.now(),
+        });
+      }
+
       setIsGenerated(true);
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.');
@@ -221,17 +238,18 @@ export default function ImageTab({ dotColor, bgColor }: ImageTabProps) {
               )}
             </div>
 
-            {/* 4-Digit Passcode Control */}
+            {/* Dynamic 4-Digit Passcode Control */}
             <PinInputControl
               pin={pin}
               setPin={(newPin) => { setPin(newPin); setIsGenerated(false); }}
               enabled={pinEnabled}
               setEnabled={(val) => { setPinEnabled(val); setIsGenerated(false); }}
-              onRegenerate={() => { setPin(generateRandomPin()); setIsGenerated(false); }}
+              isCustom={isCustomPin}
+              setIsCustom={setIsCustomPin}
               description={
                 mode === 'viewonly'
-                  ? 'Recipient must enter this 4-digit code to start the 10-second viewing window.'
-                  : 'Recipient must enter this 4-digit code to unlock the download button.'
+                  ? 'A 4-digit code will be generated upon creation to unlock the 10s viewing window.'
+                  : 'A 4-digit code will be generated upon creation to unlock the download button.'
               }
             />
 
@@ -284,8 +302,8 @@ export default function ImageTab({ dotColor, bgColor }: ImageTabProps) {
                     customDesignation={mode === 'viewonly' ? 'View Only (10s)' : 'Permanent Download'}
                     note={
                       mode === 'viewonly'
-                        ? 'Recipient must enter this 4-digit code to unlock the one-time 10-second viewing window.'
-                        : 'Recipient must enter this 4-digit code to unlock the image download.'
+                        ? 'Generated dynamically. Recipient must enter this code to unlock the one-time 10s viewing window.'
+                        : 'Generated dynamically. Recipient must enter this code to unlock the image download.'
                     }
                   />
                 )}

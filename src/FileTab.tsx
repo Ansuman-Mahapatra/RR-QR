@@ -4,7 +4,7 @@ import { Download, Loader2, Sparkles, Upload, FileText, X, Files } from 'lucide-
 import MultiFileTab from './MultiFileTab';
 import PinInputControl from './components/PinInputControl';
 import PinDisplayCard from './components/PinDisplayCard';
-import { generateRandomPin, hashPin } from './utils/security';
+import { generateRandomPin, hashPin, saveTransferRecord } from './utils/security';
 import './index.css';
 
 interface FileTabProps {
@@ -20,9 +20,10 @@ export default function FileTab({ dotColor, bgColor }: FileTabProps) {
   const [encodedUrl, setEncodedUrl] = useState('');
   const [error, setError] = useState('');
 
-  // 4-Digit Passcode state
-  const [pin, setPin] = useState(generateRandomPin());
+  // 4-Digit Passcode state - generated upon QR creation
+  const [pin, setPin] = useState('');
   const [pinEnabled, setPinEnabled] = useState(true);
+  const [isCustomPin, setIsCustomPin] = useState(false);
 
   const qrRef = useRef<HTMLDivElement>(null);
   const qrCode = useRef<QRCodeStyling | null>(null);
@@ -48,13 +49,11 @@ export default function FileTab({ dotColor, bgColor }: FileTabProps) {
     setError('');
 
     try {
-      // Step 1: Get a GoFile server
       const serverRes = await fetch('https://api.gofile.io/servers');
       const serverData = await serverRes.json();
       if (serverData.status !== 'ok') throw new Error('Could not connect to upload server.');
       const server = serverData.data.servers[0].name;
 
-      // Step 2: Upload the file
       const formData = new FormData();
       formData.append('file', file);
 
@@ -68,15 +67,32 @@ export default function FileTab({ dotColor, bgColor }: FileTabProps) {
       const filePageUrl = uploadData.data.downloadPage || `https://gofile.io/d/${uploadData.data.code}`;
       const currentDomain = window.location.origin;
 
+      // Dynamic PIN generated upon creation
+      let dynamicPin = '';
       let codeHash = '';
-      if (pinEnabled && pin.trim().length === 4) {
-        codeHash = await hashPin(pin.trim());
+      if (pinEnabled) {
+        dynamicPin = (isCustomPin && pin.trim().length === 4) ? pin.trim() : generateRandomPin();
+        setPin(dynamicPin);
+        codeHash = await hashPin(dynamicPin);
+      } else {
+        setPin('');
       }
-      const codeParam = codeHash ? `&c=${codeHash}` : '';
 
+      const codeParam = codeHash ? `&c=${codeHash}` : '';
       const finalQrUrl = `${currentDomain}/viewfile?f=${encodeURIComponent(filePageUrl)}&name=${encodeURIComponent(file.name)}${codeParam}`;
 
       setEncodedUrl(finalQrUrl);
+
+      if (dynamicPin) {
+        saveTransferRecord({
+          pin: dynamicPin,
+          url: finalQrUrl,
+          type: 'file',
+          title: file.name,
+          createdAt: Date.now(),
+        });
+      }
+
       setIsGenerated(true);
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.');
@@ -168,14 +184,15 @@ export default function FileTab({ dotColor, bgColor }: FileTabProps) {
               )}
             </div>
 
-            {/* 4-Digit Passcode Control */}
+            {/* Dynamic 4-Digit Passcode Control */}
             <PinInputControl
               pin={pin}
               setPin={(newPin) => { setPin(newPin); setIsGenerated(false); }}
               enabled={pinEnabled}
               setEnabled={(val) => { setPinEnabled(val); setIsGenerated(false); }}
-              onRegenerate={() => { setPin(generateRandomPin()); setIsGenerated(false); }}
-              description="Recipient must enter this 4-digit code to download the file."
+              isCustom={isCustomPin}
+              setIsCustom={setIsCustomPin}
+              description="A 4-digit code will be generated upon creation to unlock the download page."
             />
 
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.6, padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid var(--input-border)' }}>
@@ -221,7 +238,7 @@ export default function FileTab({ dotColor, bgColor }: FileTabProps) {
                   <PinDisplayCard
                     pin={pin}
                     designationType="file"
-                    note="Recipient must enter this 4-digit code to download the file."
+                    note="Generated dynamically with this QR. Recipient must enter this code to download the file."
                   />
                 )}
 

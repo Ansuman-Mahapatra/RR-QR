@@ -1,14 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import QRCodeStyling from 'qr-code-styling';
-import { Download, Clock, Loader2, Sparkles, Globe, Link2, Image as ImageIcon, FileText } from 'lucide-react';
+import { Download, Clock, Loader2, Sparkles, Globe, Link2, Image as ImageIcon, FileText, ArrowLeft } from 'lucide-react';
 import ImageTab from './ImageTab';
 import FileTab from './FileTab';
+import WelcomeScreen from './components/WelcomeScreen';
+import ReceiveScreen from './components/ReceiveScreen';
 import PinInputControl from './components/PinInputControl';
 import PinDisplayCard from './components/PinDisplayCard';
-import { generateRandomPin, hashPin } from './utils/security';
+import { generateRandomPin, hashPin, saveTransferRecord } from './utils/security';
 import './index.css';
 
 export default function App() {
+  // Navigation mode: 'welcome' | 'send' | 'receive'
+  const [viewMode, setViewMode] = useState<'welcome' | 'send' | 'receive'>('welcome');
   const [activeTab, setActiveTab] = useState<'url' | 'image' | 'file'>('url');
 
   // URL tab state
@@ -21,9 +25,10 @@ export default function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGenerated, setIsGenerated] = useState(false);
 
-  // 4-Digit Passcode state
-  const [pin, setPin] = useState(generateRandomPin());
+  // 4-Digit Passcode state - generated upon creation
+  const [pin, setPin] = useState('');
   const [pinEnabled, setPinEnabled] = useState(true);
+  const [isCustomPin, setIsCustomPin] = useState(false);
 
   const qrRef = useRef<HTMLDivElement>(null);
   const qrCode = useRef<QRCodeStyling | null>(null);
@@ -42,28 +47,49 @@ export default function App() {
     setIsGenerating(true);
     setIsGenerated(false);
 
+    // Code generated during QR code generation (not previously generated)
+    let dynamicPin = '';
     let codeHash = '';
-    if (pinEnabled && pin.trim().length === 4) {
-      codeHash = await hashPin(pin.trim());
+
+    if (pinEnabled) {
+      dynamicPin = (isCustomPin && pin.trim().length === 4) ? pin.trim() : generateRandomPin();
+      setPin(dynamicPin);
+      codeHash = await hashPin(dynamicPin);
+    } else {
+      setPin('');
     }
 
     setTimeout(() => {
       const origin = window.location.origin;
+      let targetQrUrl = '';
+
       if (mode === 'expiring') {
-        // 1-hour expiry
         const timeMs = Date.now() + 1 * 60 * 60 * 1000;
         setExpiryTime(timeMs);
         const codeQuery = codeHash ? `&c=${codeHash}` : '';
-        setEncodedUrl(`${origin}/r?t=${encodeURIComponent(finalUrl)}&e=${timeMs}${codeQuery}&m=expiring`);
+        targetQrUrl = `${origin}/r?t=${encodeURIComponent(finalUrl)}&e=${timeMs}${codeQuery}&m=expiring`;
       } else {
-        // Permanent link
         setExpiryTime(null);
         if (codeHash) {
-          setEncodedUrl(`${origin}/r?t=${encodeURIComponent(finalUrl)}&c=${codeHash}&m=direct`);
+          targetQrUrl = `${origin}/r?t=${encodeURIComponent(finalUrl)}&c=${codeHash}&m=direct`;
         } else {
-          setEncodedUrl(finalUrl);
+          targetQrUrl = finalUrl;
         }
       }
+
+      setEncodedUrl(targetQrUrl);
+
+      // Save to local registry for direct PIN lookup on receive page
+      if (dynamicPin) {
+        saveTransferRecord({
+          pin: dynamicPin,
+          url: targetQrUrl,
+          type: 'link',
+          title: finalUrl,
+          createdAt: Date.now(),
+        });
+      }
+
       setIsGenerating(false);
       setIsGenerated(true);
     }, 1200);
@@ -96,11 +122,44 @@ export default function App() {
 
   const formattedTime = expiryTime ? new Date(expiryTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
+  // 1. WELCOME VIEW
+  if (viewMode === 'welcome') {
+    return (
+      <WelcomeScreen
+        onSelectSend={() => setViewMode('send')}
+        onSelectReceive={() => setViewMode('receive')}
+      />
+    );
+  }
+
+  // 2. RECEIVE VIEW
+  if (viewMode === 'receive') {
+    return <ReceiveScreen onBack={() => setViewMode('welcome')} />;
+  }
+
+  // 3. SEND VIEW (Generator)
   return (
     <div className="app-container">
-      <div className="header">
-        <h1>Smart QR Generator</h1>
-        <p>Create modern, round QR codes with 4-digit security & designation controls</p>
+      {/* Top Navigation */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+        <button
+          type="button"
+          onClick={() => setViewMode('welcome')}
+          className="back-nav-btn"
+          title="Back to Welcome Menu"
+        >
+          <ArrowLeft size={18} />
+          <span>Back to Menu</span>
+        </button>
+        <div style={{ textAlign: 'center' }}>
+          <h1 style={{ fontSize: '2rem', fontWeight: 700, margin: 0, background: 'linear-gradient(to right, #818cf8, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            Send & Generate QR
+          </h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
+            Codes are dynamically generated upon creation
+          </p>
+        </div>
+        <div style={{ width: '100px' }} />
       </div>
 
       {/* Main Tab Navigation */}
@@ -153,20 +212,21 @@ export default function App() {
                 placeholder="Paste your link here (e.g. google.com)" />
             </div>
 
-            {/* 4-Digit Passcode Control */}
+            {/* Dynamic 4-Digit Passcode Control (Generated upon creation) */}
             <PinInputControl
               pin={pin}
               setPin={(newPin) => { setPin(newPin); setIsGenerated(false); }}
               enabled={pinEnabled}
               setEnabled={(val) => { setPinEnabled(val); setIsGenerated(false); }}
-              onRegenerate={() => { setPin(generateRandomPin()); setIsGenerated(false); }}
-              description="Recipient must enter this 4-digit code to access destination."
+              isCustom={isCustomPin}
+              setIsCustom={setIsCustomPin}
+              description="A fresh 4-digit code will be generated dynamically when you click Generate."
             />
 
             <button className="btn-primary" onClick={handleGenerate}
               disabled={isGenerating || !url.trim()}
               style={{ width: '100%', marginBottom: '1rem', opacity: (!url.trim() || isGenerating) ? 0.7 : 1 }}>
-              {isGenerating ? <><Loader2 size={20} className="spin" />Generating...</> : <><Sparkles size={20} />Generate QR Code</>}
+              {isGenerating ? <><Loader2 size={20} className="spin" />Generating QR & Code...</> : <><Sparkles size={20} />Generate QR Code</>}
             </button>
 
             <div className="color-pickers">
@@ -191,7 +251,7 @@ export default function App() {
             {isGenerating && (
               <div style={{ textAlign: 'center', color: 'var(--primary)', padding: '2rem' }}>
                 <Loader2 size={64} className="spin" style={{ marginBottom: '1rem' }} />
-                <p>Encoding your link & security code...</p>
+                <p>Encoding link & generating dynamic 4-digit code...</p>
               </div>
             )}
             {isGenerated && (
@@ -205,7 +265,7 @@ export default function App() {
                     pin={pin}
                     designationType="link"
                     customDesignation={mode === 'expiring' ? '1-Hour Expiring' : 'Permanent Link'}
-                    note="Recipient must enter this 4-digit code at the start to open the link."
+                    note="Code generated dynamically with this QR. Share with recipient to unlock."
                   />
                 )}
 

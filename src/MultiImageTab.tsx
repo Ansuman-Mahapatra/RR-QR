@@ -3,7 +3,7 @@ import QRCodeStyling from 'qr-code-styling';
 import { Download, Loader2, Sparkles, Upload, Image as ImageIcon, X } from 'lucide-react';
 import PinInputControl from './components/PinInputControl';
 import PinDisplayCard from './components/PinDisplayCard';
-import { generateRandomPin, hashPin } from './utils/security';
+import { generateRandomPin, hashPin, saveTransferRecord } from './utils/security';
 import './index.css';
 
 const IMGBB_KEY = '1ee54d2dcc1b17afca1931ceed340d2f';
@@ -22,9 +22,10 @@ export default function MultiImageTab({ dotColor, bgColor }: MultiImageTabProps)
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
 
-  // 4-Digit Passcode state
-  const [pin, setPin] = useState(generateRandomPin());
+  // 4-Digit Passcode state - dynamically generated upon creation
+  const [pin, setPin] = useState('');
   const [pinEnabled, setPinEnabled] = useState(true);
+  const [isCustomPin, setIsCustomPin] = useState(false);
 
   const qrRef = useRef<HTMLDivElement>(null);
   const qrCode = useRef<QRCodeStyling | null>(null);
@@ -38,7 +39,7 @@ export default function MultiImageTab({ dotColor, bgColor }: MultiImageTabProps)
   const handleFilesSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
     if (selected.length === 0) return;
-    const combined = [...files, ...selected].slice(0, 10); // max 10 images
+    const combined = [...files, ...selected].slice(0, 10);
     setFiles(combined);
     setIsGenerated(false);
     setError('');
@@ -86,17 +87,34 @@ export default function MultiImageTab({ dotColor, bgColor }: MultiImageTabProps)
         setProgress(Math.round(((i + 1) / files.length) * 100));
       }
 
+      // Generate dynamic PIN upon creation
+      let dynamicPin = '';
       let codeHash = '';
-      if (pinEnabled && pin.trim().length === 4) {
-        codeHash = await hashPin(pin.trim());
+      if (pinEnabled) {
+        dynamicPin = (isCustomPin && pin.trim().length === 4) ? pin.trim() : generateRandomPin();
+        setPin(dynamicPin);
+        codeHash = await hashPin(dynamicPin);
+      } else {
+        setPin('');
       }
-      const codeParam = codeHash ? `&c=${codeHash}` : '';
 
+      const codeParam = codeHash ? `&c=${codeHash}` : '';
       const currentDomain = window.location.origin;
       const encoded = btoa(JSON.stringify(uploadedUrls));
       const finalQrUrl = `${currentDomain}/gallery?imgs=${encoded}${codeParam}`;
 
       setEncodedUrl(finalQrUrl);
+
+      if (dynamicPin) {
+        saveTransferRecord({
+          pin: dynamicPin,
+          url: finalQrUrl,
+          type: 'gallery',
+          title: `${files.length} Images Gallery`,
+          createdAt: Date.now(),
+        });
+      }
+
       setIsGenerated(true);
     } catch (err: any) {
       setError(err.message || 'Upload failed. Please try again.');
@@ -160,14 +178,15 @@ export default function MultiImageTab({ dotColor, bgColor }: MultiImageTabProps)
           </div>
         )}
 
-        {/* 4-Digit Passcode Control */}
+        {/* Dynamic 4-Digit Passcode Control */}
         <PinInputControl
           pin={pin}
           setPin={(newPin) => { setPin(newPin); setIsGenerated(false); }}
           enabled={pinEnabled}
           setEnabled={(val) => { setPinEnabled(val); setIsGenerated(false); }}
-          onRegenerate={() => { setPin(generateRandomPin()); setIsGenerated(false); }}
-          description="Recipient must enter this 4-digit code to view & download gallery images."
+          isCustom={isCustomPin}
+          setIsCustom={setIsCustomPin}
+          description="A 4-digit code will be generated upon creation to unlock the gallery."
         />
 
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.6, padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid var(--input-border)' }}>
@@ -226,7 +245,7 @@ export default function MultiImageTab({ dotColor, bgColor }: MultiImageTabProps)
               <PinDisplayCard
                 pin={pin}
                 designationType="gallery"
-                note="Recipient must enter this 4-digit code to unlock the gallery view."
+                note="Generated dynamically with this QR. Recipient must enter this code to unlock the gallery view."
               />
             )}
 

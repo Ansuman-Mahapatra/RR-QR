@@ -34,3 +34,42 @@ export async function verifyPin(enteredPin: string, expectedHash: string): Promi
   const hashed = await hashPin(cleanEntered);
   return hashed.toLowerCase() === cleanExpected.toLowerCase();
 }
+
+export interface TransferRecord {
+  pin: string;
+  url: string;
+  type: 'link' | 'image' | 'file' | 'gallery' | 'multifile';
+  title?: string;
+  createdAt: number;
+}
+
+const STORAGE_KEY = 'rr_transfers_list';
+
+export function saveTransferRecord(record: TransferRecord): void {
+  try {
+    const existing: TransferRecord[] = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const filtered = existing.filter(t => t.pin !== record.pin);
+    const updated = [record, ...filtered].slice(0, 20);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  } catch (err) {
+    console.error('Failed to save transfer record:', err);
+  }
+}
+
+export function getTransferByPin(pin: string): TransferRecord | null {
+  try {
+    const cleanPin = pin.trim();
+    const existing: TransferRecord[] = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    return existing.find(t => t.pin === cleanPin) || null;
+  } catch {
+    return null;
+  }
+}
+
+export function getAllTransfers(): TransferRecord[] {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
