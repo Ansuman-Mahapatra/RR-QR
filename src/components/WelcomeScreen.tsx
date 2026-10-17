@@ -38,15 +38,14 @@ export default function WelcomeScreen({ onSelectSend, onSelectReceive }: Welcome
 
         <div className="hero-pill">
           <Sparkles size={14} style={{ color: '#818cf8' }} />
-          <span>Next-Gen Encrypted Peer Transfer</span>
+          <span>RR QR — Fast, Private &amp; Free</span>
         </div>
 
         <h1 className="welcome-title">
-          Round <span className="gradient-text">QR</span>
+          Free QR Code Generator <span className="gradient-text">Online</span>
         </h1>
         <p className="welcome-tagline">
-          Create modern, circular QR codes with dynamically generated 4-digit passcodes,
-          or receive and unlock content with camera, photo, or PIN.
+          Create custom circular QR codes for links, images, and files with optional 4-digit passcode security, or scan and unlock shared content in seconds.
         </p>
       </div>
 
@@ -61,7 +60,7 @@ export default function WelcomeScreen({ onSelectSend, onSelectReceive }: Welcome
             <span className="card-badge badge-send">Send Mode</span>
           </div>
 
-          <h2 className="card-title">Send Content</h2>
+          <h2 className="card-title">Send &amp; Generate QR</h2>
           <p className="card-description">
             Generate customized circular QR codes for URLs, single/multi images, or file bundles.
             A secure 4-digit code is dynamically created when you generate the QR.
@@ -74,16 +73,16 @@ export default function WelcomeScreen({ onSelectSend, onSelectReceive }: Welcome
             </li>
             <li>
               <Eye size={14} />
-              <span>View-only (10s timer) & permanent modes</span>
+              <span>View-only (10s timer) &amp; permanent modes</span>
             </li>
             <li>
               <Files size={14} />
-              <span>Multi-image galleries & file bundles</span>
+              <span>Multi-image galleries &amp; file bundles</span>
             </li>
           </ul>
 
           <button type="button" className="action-card-btn btn-send">
-            <span>Create & Send QR</span>
+            <span>Create &amp; Send QR</span>
             <ArrowRight size={18} />
           </button>
         </div>
@@ -97,7 +96,7 @@ export default function WelcomeScreen({ onSelectSend, onSelectReceive }: Welcome
             <span className="card-badge badge-receive">Receive Mode</span>
           </div>
 
-          <h2 className="card-title">Receive Content</h2>
+          <h2 className="card-title">Scan &amp; Receive Content</h2>
           <p className="card-description">
             Access protected content shared with you. Scan directly from your device camera,
             select an image from your gallery, or unlock directly using the 4-digit passcode.
@@ -110,7 +109,7 @@ export default function WelcomeScreen({ onSelectSend, onSelectReceive }: Welcome
             </li>
             <li>
               <Sparkles size={14} />
-              <span>Instant photo & screenshot QR reader</span>
+              <span>Instant photo &amp; screenshot QR reader</span>
             </li>
             <li>
               <Lock size={14} />
@@ -119,7 +118,7 @@ export default function WelcomeScreen({ onSelectSend, onSelectReceive }: Welcome
           </ul>
 
           <button type="button" className="action-card-btn btn-receive">
-            <span>Scan & Receive</span>
+            <span>Scan &amp; Receive</span>
             <ArrowRight size={18} />
           </button>
         </div>
@@ -140,6 +139,50 @@ export default function WelcomeScreen({ onSelectSend, onSelectReceive }: Welcome
           <span>Client-Side Dynamic Encoding</span>
         </div>
       </div>
+
+      {/* Informative SEO Section: How It Works & Capabilities */}
+      <section className="welcome-info-section" aria-label="About RR QR and How It Works">
+        <h2 className="info-section-title">
+          How <span className="gradient-text">RR QR</span> Works
+        </h2>
+        <p className="info-section-subtitle">
+          RR QR is a free web-based QR code generator and scanner designed for rapid, secure peer-to-peer sharing. Here is how you can generate and receive content:
+        </p>
+
+        <div className="info-steps-grid">
+          <div className="info-step-card">
+            <div className="step-num">1</div>
+            <h3 className="step-title">Choose Content Type</h3>
+            <p className="step-desc">
+              Select <strong>URL / Link</strong> for direct or 1-hour expiring web destinations, <strong>Image</strong> for single photos with 10-second view-only protection or multi-image galleries, or <strong>Files</strong> for documents and archives.
+            </p>
+          </div>
+
+          <div className="info-step-card">
+            <div className="step-num">2</div>
+            <h3 className="step-title">Customize &amp; Secure</h3>
+            <p className="step-desc">
+              Personalize your QR code with custom dot and background colors. Optionally protect access using a dynamically generated 4-digit passcode with salted SHA-256 verification.
+            </p>
+          </div>
+
+          <div className="info-step-card">
+            <div className="step-num">3</div>
+            <h3 className="step-title">Generate &amp; Download</h3>
+            <p className="step-desc">
+              Instantly create a high-resolution circular QR code formatted with rounded corners and download it as a PNG file, ready for digital sharing or print.
+            </p>
+          </div>
+
+          <div className="info-step-card">
+            <div className="step-num">4</div>
+            <h3 className="step-title">Scan or Unlock</h3>
+            <p className="step-desc">
+              Recipients can open content by scanning directly using their device camera, uploading a screenshot/photo QR code, or entering the matching 4-digit security code.
+            </p>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

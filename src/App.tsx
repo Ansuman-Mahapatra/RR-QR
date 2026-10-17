@@ -152,9 +152,9 @@ export default function App() {
           <span>Back to Menu</span>
         </button>
         <div style={{ textAlign: 'center' }}>
-          <h1 style={{ fontSize: '2rem', fontWeight: 700, margin: 0, background: 'linear-gradient(to right, #818cf8, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            Send & Generate QR
-          </h1>
+          <h2 style={{ fontSize: '2rem', fontWeight: 700, margin: 0, background: 'linear-gradient(to right, #818cf8, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            Send &amp; Generate QR
+          </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
             Codes are dynamically generated upon creation
           </p>
