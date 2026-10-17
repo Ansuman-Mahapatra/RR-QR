@@ -12,6 +12,7 @@ export default function Redirect() {
   const targetUrl = searchParams.get('t');
   const expiry = searchParams.get('e');
   const codeParam = searchParams.get('c');
+  const isAlreadyUnlocked = searchParams.get('unlocked') === '1';
 
   useEffect(() => {
     if (!targetUrl) {
@@ -29,7 +30,11 @@ export default function Redirect() {
     }
 
     setStatus('checking');
-  }, [targetUrl, expiry]);
+
+    if (isAlreadyUnlocked || !codeParam) {
+      setIsUnlocked(true);
+    }
+  }, [targetUrl, expiry, isAlreadyUnlocked, codeParam]);
 
   // Once unlocked and status is valid, proceed with redirect
   useEffect(() => {
@@ -38,7 +43,7 @@ export default function Redirect() {
     setStatus('validating');
     const timer = setTimeout(() => {
       window.location.href = decodeURIComponent(targetUrl);
-    }, 1200);
+    }, 1000);
 
     return () => clearTimeout(timer);
   }, [isUnlocked, status, targetUrl]);
@@ -72,7 +77,7 @@ export default function Redirect() {
   }
 
   // If passcode is required and not yet unlocked
-  if (codeParam && !isUnlocked) {
+  if (codeParam && !isUnlocked && !isAlreadyUnlocked) {
     return (
       <PasscodeGate
         expectedHash={codeParam}

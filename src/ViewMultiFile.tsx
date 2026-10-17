@@ -16,6 +16,7 @@ export default function ViewMultiFile() {
   const [isUnlocked, setIsUnlocked] = useState(false);
 
   const codeParam = searchParams.get('c');
+  const isAlreadyUnlocked = searchParams.get('unlocked') === '1';
 
   useEffect(() => {
     const data = searchParams.get('data');
@@ -29,10 +30,10 @@ export default function ViewMultiFile() {
       setStatus('invalid');
     }
 
-    if (!codeParam) {
+    if (!codeParam || isAlreadyUnlocked) {
       setIsUnlocked(true);
     }
-  }, [searchParams, codeParam]);
+  }, [searchParams, codeParam, isAlreadyUnlocked]);
 
   if (status === 'invalid') {
     return (
@@ -46,8 +47,8 @@ export default function ViewMultiFile() {
     );
   }
 
-  // Passcode gate check
-  if (codeParam && !isUnlocked) {
+  // Passcode gate check: only show if passcode required AND not already unlocked
+  if (codeParam && !isUnlocked && !isAlreadyUnlocked) {
     return (
       <PasscodeGate
         expectedHash={codeParam}

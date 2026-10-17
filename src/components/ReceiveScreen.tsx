@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Camera, Image as ImageIcon, Lock, ArrowLeft, RefreshCw, AlertCircle, CheckCircle2, ExternalLink, QrCode, Upload, FileText, Globe } from 'lucide-react';
+import { Camera, Image as ImageIcon, Lock, ArrowLeft, RefreshCw, AlertCircle, CheckCircle2, ExternalLink, QrCode, Upload } from 'lucide-react';
 import jsQR from 'jsqr';
 import { getTransferByPin, getAllTransfers, type TransferRecord } from '../utils/security';
 
@@ -26,6 +26,7 @@ export default function ReceiveScreen({ onBack }: ReceiveScreenProps) {
   const [pinMatchedTransfer, setPinMatchedTransfer] = useState<TransferRecord | null>(null);
   const [pinSearchError, setPinSearchError] = useState('');
   const [recentTransfers, setRecentTransfers] = useState<TransferRecord[]>([]);
+  const [isAutoRedirecting, setIsAutoRedirecting] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -230,21 +231,31 @@ export default function ReceiveScreen({ onBack }: ReceiveScreenProps) {
     if (match) {
       setPinMatchedTransfer(match);
       setPinSearchError('');
+      // Auto redirect seamlessly so user is never prompted for the code again
+      setIsAutoRedirecting(true);
+      setTimeout(() => {
+        navigateToResult(match.url, true);
+      }, 700);
     } else {
       setPinMatchedTransfer(null);
       setPinSearchError(`No active transfer with PIN "${pin}" found on this device. If you have the QR code, scan it above with the Camera or Photo selector.`);
     }
   };
 
-  const navigateToResult = (targetUrl: string) => {
+  // When alreadyUnlocked is true (e.g. from 4-digit code tab), strip 'c' and set 'unlocked=1'
+  // so the destination page NEVER asks for the protected code a second time!
+  const navigateToResult = (targetUrl: string, alreadyUnlocked: boolean = false) => {
     if (!targetUrl) return;
     try {
       const parsed = new URL(targetUrl, window.location.origin);
-      // If it's a relative path on same domain, navigate via window.location
+      if (alreadyUnlocked) {
+        parsed.searchParams.delete('c');
+        parsed.searchParams.set('unlocked', '1');
+      }
       if (parsed.origin === window.location.origin) {
         window.location.href = parsed.pathname + parsed.search;
       } else {
-        window.location.href = targetUrl;
+        window.location.href = parsed.toString();
       }
     } catch {
       window.location.href = targetUrl;
@@ -303,7 +314,7 @@ export default function ReceiveScreen({ onBack }: ReceiveScreenProps) {
         </button>
       </div>
 
-      {/* Scanned Result Banner if detected */}
+      {/* Scanned Result Banner if detected from Camera or Photo */}
       {scannedResult && (
         <div className="scanned-result-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
@@ -321,7 +332,7 @@ export default function ReceiveScreen({ onBack }: ReceiveScreenProps) {
               type="button"
               className="btn-primary"
               style={{ flex: 1, padding: '0.85rem 1.5rem', fontSize: '1rem' }}
-              onClick={() => navigateToResult(scannedResult)}
+              onClick={() => navigateToResult(scannedResult, false)}
             >
               <ExternalLink size={18} />
               <span>Open Received Content</span>
@@ -457,7 +468,7 @@ export default function ReceiveScreen({ onBack }: ReceiveScreenProps) {
               Enter 4-Digit Passcode
             </h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.75rem', lineHeight: 1.5 }}>
-              Enter the 4-digit code provided by the sender to retrieve and open your content.
+              Enter the 4-digit code provided by the sender. Your content will unlock directly without asking for the code again.
             </p>
 
             {/* 4 Digit Inputs */}
@@ -479,29 +490,29 @@ export default function ReceiveScreen({ onBack }: ReceiveScreenProps) {
               ))}
             </div>
 
-            {/* Matched Transfer Result */}
+            {/* Auto Redirecting Notice or Matched Transfer Card */}
             {pinMatchedTransfer && (
-              <div className="matched-transfer-card">
+              <div className="matched-transfer-card" style={{ background: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.35)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  {pinMatchedTransfer.type === 'image' && <ImageIcon size={24} style={{ color: 'var(--primary)' }} />}
-                  {pinMatchedTransfer.type === 'file' && <FileText size={24} style={{ color: 'var(--primary)' }} />}
-                  {pinMatchedTransfer.type === 'link' && <Globe size={24} style={{ color: 'var(--primary)' }} />}
-                  {pinMatchedTransfer.type === 'gallery' && <ImageIcon size={24} style={{ color: 'var(--primary)' }} />}
-                  {pinMatchedTransfer.type === 'multifile' && <FileText size={24} style={{ color: 'var(--primary)' }} />}
+                  <CheckCircle2 size={26} style={{ color: '#10b981', flexShrink: 0 }} />
                   <div style={{ textAlign: 'left', overflow: 'hidden' }}>
-                    <h4 style={{ margin: 0, fontSize: '0.95rem' }}>{pinMatchedTransfer.title || `${pinMatchedTransfer.type.toUpperCase()} Transfer`}</h4>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>PIN: {pinMatchedTransfer.pin} • Ready to view</span>
+                    <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#34d399' }}>
+                      {isAutoRedirecting ? 'Code Verified! Unlocking...' : 'Code Verified!'}
+                    </h4>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      PIN: {pinMatchedTransfer.pin} • Opening {pinMatchedTransfer.type} directly
+                    </span>
                   </div>
                 </div>
 
                 <button
                   type="button"
                   className="btn-primary"
-                  style={{ marginTop: '1rem', width: '100%', padding: '0.75rem' }}
-                  onClick={() => navigateToResult(pinMatchedTransfer.url)}
+                  style={{ marginTop: '1rem', width: '100%', padding: '0.75rem', background: '#10b981' }}
+                  onClick={() => navigateToResult(pinMatchedTransfer.url, true)}
                 >
                   <ExternalLink size={16} />
-                  <span>Open & Unlock Content</span>
+                  <span>Open Content Directly</span>
                 </button>
               </div>
             )}
@@ -525,7 +536,7 @@ export default function ReceiveScreen({ onBack }: ReceiveScreenProps) {
                 {recentTransfers.slice(0, 4).map((item, idx) => (
                   <div
                     key={idx}
-                    onClick={() => navigateToResult(item.url)}
+                    onClick={() => navigateToResult(item.url, true)}
                     className="recent-transfer-item"
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>

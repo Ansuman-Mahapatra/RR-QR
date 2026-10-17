@@ -11,6 +11,7 @@ export default function ViewGallery() {
   const [isUnlocked, setIsUnlocked] = useState(false);
 
   const codeParam = searchParams.get('c');
+  const isAlreadyUnlocked = searchParams.get('unlocked') === '1';
 
   useEffect(() => {
     const imgs = searchParams.get('imgs');
@@ -24,10 +25,10 @@ export default function ViewGallery() {
       setStatus('invalid');
     }
 
-    if (!codeParam) {
+    if (!codeParam || isAlreadyUnlocked) {
       setIsUnlocked(true);
     }
-  }, [searchParams, codeParam]);
+  }, [searchParams, codeParam, isAlreadyUnlocked]);
 
   const handleDownload = async (url: string, index: number) => {
     try {
@@ -61,8 +62,8 @@ export default function ViewGallery() {
     );
   }
 
-  // Passcode gate check
-  if (codeParam && !isUnlocked) {
+  // Passcode gate check: only show if passcode required AND not already unlocked
+  if (codeParam && !isUnlocked && !isAlreadyUnlocked) {
     return (
       <PasscodeGate
         expectedHash={codeParam}

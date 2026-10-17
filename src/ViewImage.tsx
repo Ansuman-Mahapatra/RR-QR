@@ -21,6 +21,36 @@ export default function ViewImage() {
   const codeParam = searchParams.get('c');
   const modeParam = searchParams.get('m'); // 'v' = view-only, 'e' = expiring/download
   const isViewOnly = modeParam === 'v';
+  const isAlreadyUnlocked = searchParams.get('unlocked') === '1';
+
+  // Once unlocked (via passcode or direct from receiving), activate viewing / download
+  const handleUnlockSuccess = (imgSrc?: string) => {
+    setIsUnlocked(true);
+    const targetImg = imgSrc || imageUrl;
+
+    if (isViewOnly && targetImg) {
+      const storageKey = STORAGE_PREFIX + btoa(targetImg).slice(0, 32);
+      fetch('https://api.ipify.org?format=json')
+        .then(r => r.json())
+        .then(data => {
+          localStorage.setItem(storageKey, JSON.stringify({
+            ip: data.ip || 'unknown',
+            viewedAt: new Date().toISOString()
+          }));
+        })
+        .catch(() => {
+          localStorage.setItem(storageKey, JSON.stringify({
+            ip: 'unknown',
+            viewedAt: new Date().toISOString()
+          }));
+        })
+        .finally(() => {
+          setStatus('viewing');
+        });
+    } else {
+      setStatus('viewing');
+    }
+  };
 
   useEffect(() => {
     const img = searchParams.get('img');
@@ -50,40 +80,11 @@ export default function ViewImage() {
       }
     }
 
-    // If no passcode required, unlock immediately
-    if (!codeParam) {
-      setIsUnlocked(true);
+    // If no passcode required or already unlocked from receiving screen
+    if (!codeParam || isAlreadyUnlocked) {
+      handleUnlockSuccess(decoded);
     }
-  }, [searchParams, isViewOnly, codeParam]);
-
-  // Once unlocked (via passcode or direct), activate viewing / download
-  const handleUnlockSuccess = () => {
-    setIsUnlocked(true);
-
-    if (isViewOnly) {
-      const storageKey = STORAGE_PREFIX + btoa(imageUrl).slice(0, 32);
-      // Mark as viewed on this device
-      fetch('https://api.ipify.org?format=json')
-        .then(r => r.json())
-        .then(data => {
-          localStorage.setItem(storageKey, JSON.stringify({
-            ip: data.ip || 'unknown',
-            viewedAt: new Date().toISOString()
-          }));
-        })
-        .catch(() => {
-          localStorage.setItem(storageKey, JSON.stringify({
-            ip: 'unknown',
-            viewedAt: new Date().toISOString()
-          }));
-        })
-        .finally(() => {
-          setStatus('viewing');
-        });
-    } else {
-      setStatus('viewing');
-    }
-  };
+  }, [searchParams, isViewOnly, codeParam, isAlreadyUnlocked]);
 
   // Start countdown only AFTER image has fully loaded (view-only mode only)
   useEffect(() => {
@@ -159,8 +160,8 @@ export default function ViewImage() {
     );
   }
 
-  // Passcode gate check: if passcode is required and not yet unlocked
-  if (codeParam && !isUnlocked) {
+  // Passcode gate check: only show if passcode is required AND not already unlocked
+  if (codeParam && !isUnlocked && !isAlreadyUnlocked) {
     return (
       <PasscodeGate
         expectedHash={codeParam}
@@ -171,7 +172,7 @@ export default function ViewImage() {
             ? 'This image is designated as View Only. Enter the 4-digit code to start your 10-second viewing window.'
             : 'This image is designated for download. Enter the 4-digit code to unlock the download page.'
         }
-        onSuccess={handleUnlockSuccess}
+        onSuccess={() => handleUnlockSuccess()}
       />
     );
   }
@@ -227,7 +228,7 @@ export default function ViewImage() {
             Shared Image
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2rem', textAlign: 'center' }}>
-            Code verified. Click the button below to download the shared image.
+            Click the button below to download the shared image.
           </p>
           <button onClick={handleDownload} style={{
             background: 'var(--primary)', color: 'white',

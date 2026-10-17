@@ -11,6 +11,7 @@ export default function ViewFile() {
   const [isUnlocked, setIsUnlocked] = useState(false);
 
   const codeParam = searchParams.get('c');
+  const isAlreadyUnlocked = searchParams.get('unlocked') === '1';
 
   useEffect(() => {
     const f = searchParams.get('f');
@@ -18,10 +19,10 @@ export default function ViewFile() {
     if (f) setFileUrl(decodeURIComponent(f));
     if (name) setFileName(decodeURIComponent(name));
 
-    if (!codeParam) {
+    if (!codeParam || isAlreadyUnlocked) {
       setIsUnlocked(true);
     }
-  }, [searchParams, codeParam]);
+  }, [searchParams, codeParam, isAlreadyUnlocked]);
 
   if (!fileUrl) {
     return (
@@ -31,8 +32,8 @@ export default function ViewFile() {
     );
   }
 
-  // Passcode gate check: if passcode required and not yet unlocked
-  if (codeParam && !isUnlocked) {
+  // Passcode gate check: only show if passcode is required AND not already unlocked
+  if (codeParam && !isUnlocked && !isAlreadyUnlocked) {
     return (
       <PasscodeGate
         expectedHash={codeParam}
@@ -65,7 +66,7 @@ export default function ViewFile() {
           {fileName || 'Shared File'}
         </h2>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2rem', textAlign: 'center' }}>
-          Passcode verified. Click the button below to open and download your file.
+          Click the button below to open and download your file.
         </p>
 
         <a
