@@ -1,4 +1,4 @@
-import { Send, QrCode, ShieldCheck, Zap, Lock, Sparkles, ArrowRight, Eye, Files } from 'lucide-react';
+import { Send, QrCode, ShieldCheck, Zap, Lock, Sparkles, ArrowRight, Eye, Files, ExternalLink } from 'lucide-react';
 
 interface WelcomeScreenProps {
   onSelectSend: () => void;
@@ -183,6 +183,36 @@ export default function WelcomeScreen({ onSelectSend, onSelectReceive }: Welcome
           </div>
         </div>
       </section>
+
+      {/* Creator Credits Footer */}
+      <footer className="welcome-credits-footer">
+        <div className="credits-divider" />
+        <div className="credits-content">
+          <p className="credits-text">
+            Created by <span className="creator-name">Ansuman Mahapatra</span>
+          </p>
+          <a
+            href="https://www.linkedin.com/in/ansumanmahapatra998/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="linkedin-link"
+            title="Connect with Ansuman Mahapatra on LinkedIn"
+          >
+            <LinkedInIcon size={16} />
+            <span>Ansuman Mahapatra | LinkedIn</span>
+            <ExternalLink size={13} />
+          </a>
+        </div>
+      </footer>
     </div>
   );
 }
+
+function LinkedInIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.45a1.6 1.6 0 0 0-1.6 1.6 1.6 1.6 0 0 0 1.6 1.6 1.6 1.6 0 0 0 1.6-1.6 1.6 1.6 0 0 0-1.6-1.6Z" />
+    </svg>
+  );
+}
+
